@@ -723,12 +723,7 @@
                     <span class="event-icon">⚽</span>
                     <span class="event-name">{{ ev.lastName }}</span>
                     <span v-if="ev.isOG" class="event-og">OG</span>
-                    <span
-                      v-for="(clk, ci) in ev.clocks"
-                      :key="ci"
-                      class="event-clock"
-                      >{{ clk }}</span
-                    >
+                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
                     <span v-if="ev.isPenalty" class="event-pen">P</span>
                   </span>
                 </div>
@@ -753,12 +748,7 @@
                     />
                     <span v-else class="event-card event-card-red" />
                     <span class="event-name">{{ ev.lastName }}</span>
-                    <span
-                      v-for="(clk, ci) in ev.clocks"
-                      :key="ci"
-                      class="event-clock"
-                      >{{ clk }}</span
-                    >
+                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
                   </span>
                 </div>
               </div>
@@ -782,12 +772,7 @@
                     <span class="event-icon">⚽</span>
                     <span class="event-name">{{ ev.lastName }}</span>
                     <span v-if="ev.isOG" class="event-og">OG</span>
-                    <span
-                      v-for="(clk, ci) in ev.clocks"
-                      :key="ci"
-                      class="event-clock"
-                      >{{ clk }}</span
-                    >
+                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
                     <span v-if="ev.isPenalty" class="event-pen">P</span>
                   </span>
                 </div>
@@ -812,12 +797,7 @@
                     />
                     <span v-else class="event-card event-card-red" />
                     <span class="event-name">{{ ev.lastName }}</span>
-                    <span
-                      v-for="(clk, ci) in ev.clocks"
-                      :key="ci"
-                      class="event-clock"
-                      >{{ clk }}</span
-                    >
+                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
                   </span>
                 </div>
               </div>
