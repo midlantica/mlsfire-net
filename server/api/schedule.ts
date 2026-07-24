@@ -13,35 +13,6 @@
  * are needed.
  */
 
-const SEASON_TTL_MS = 60 * 60_000 // 1 hour
-
-interface SeasonBlobCache {
-  events: Array<Record<string, unknown>>
-  fetchedAt: number
-}
-
-let seasonBlobCache: SeasonBlobCache | null = null
-
-async function fetchSeasonBlob(): Promise<Array<Record<string, unknown>>> {
-  const now = Date.now()
-  if (seasonBlobCache && now - seasonBlobCache.fetchedAt < SEASON_TTL_MS) {
-    return seasonBlobCache.events
-  }
-
-  const url =
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=20260101-20261231&limit=1000'
-
-  try {
-    const data = await $fetch<Record<string, unknown>>(url)
-    const events = (data.events as Array<Record<string, unknown>>) ?? []
-    seasonBlobCache = { events, fetchedAt: now }
-    return events
-  } catch (err) {
-    if (seasonBlobCache) return seasonBlobCache.events
-    throw err
-  }
-}
-
 function teamIsInEvent(evt: Record<string, unknown>, teamId: string): boolean {
   const comps = (evt.competitions as Array<Record<string, unknown>>) ?? []
   const comp = comps[0] ?? {}
@@ -62,7 +33,10 @@ export default defineEventHandler(async (event) => {
 
   try {
     const allEvents = await fetchSeasonBlob()
-    const events = allEvents.filter((evt) => teamIsInEvent(evt, teamId))
+    const events = allEvents
+      .filter((evt) => teamIsInEvent(evt, teamId))
+      .map((evt) => structuredClone(evt))
+    await applyPriorRecords(events)
     return { events }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

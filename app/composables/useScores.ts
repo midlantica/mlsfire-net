@@ -61,9 +61,10 @@ function isDerby(home: string, away: string): boolean {
 
 // ── Game quality score ────────────────────────────────────────────────────────
 // Uses MLS points logic: W=3pts, D=1pt, L=0pts
+// ESPN's record summary format is "W-D-L" (wins-draws-losses).
 function parseRec(summary: string): { w: number; l: number; d: number } {
   const parts = summary.split('-').map(Number)
-  return { w: parts[0] ?? 0, l: parts[1] ?? 0, d: parts[2] ?? 0 }
+  return { w: parts[0] ?? 0, d: parts[1] ?? 0, l: parts[2] ?? 0 }
 }
 
 export function calcQuality(homeRec: string, awayRec: string): number {
@@ -140,7 +141,7 @@ const TEAM_NAME_MAP: Record<string, string> = {
   'St. Louis CITY SC': 'St. Louis City SC',
 }
 
-function normalizeTeamName(name: string): string {
+export function normalizeTeamName(name: string): string {
   return TEAM_NAME_MAP[name] ?? name
 }
 

@@ -219,6 +219,8 @@ async function fetchRange(
 
   try {
     const data = await $fetch<Record<string, unknown>>(url)
+    const events = (data.events as Array<Record<string, unknown>>) ?? []
+    await applyPriorRecords(events)
     cache.set(cacheKey, { data, fetchedAt: now })
     return { data }
   } catch {

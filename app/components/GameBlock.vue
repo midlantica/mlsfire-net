@@ -1,10 +1,13 @@
 <script setup lang="ts">
   import type { Match } from '../composables/useScores'
   import { useTimezone } from '../composables/useTimezone'
+  import { useConferenceBadges } from '../composables/useStandings'
+  import { TEAM_SHORT_NAME } from '../composables/useMyTeam'
 
   const props = defineProps<{
     match: Match
     showDate?: boolean // show full date instead of just time (Week's Best)
+    hideConferenceBadge?: boolean
   }>()
 
   const emit = defineEmits<{
@@ -12,6 +15,20 @@
   }>()
 
   const { formatTimeHtml, iana } = useTimezone()
+  const { badgeByTeam } = useConferenceBadges()
+
+  const homeBadge = computed(() => badgeByTeam.value[props.match.home])
+  const awayBadge = computed(() => badgeByTeam.value[props.match.away])
+
+  const NAME_LENGTH_THRESHOLD = 18
+
+  function displayTeamName(fullName: string): string {
+    if (fullName.length <= NAME_LENGTH_THRESHOLD) return fullName
+    return TEAM_SHORT_NAME[fullName] ?? fullName
+  }
+
+  const homeDisplayName = computed(() => displayTeamName(props.match.home))
+  const awayDisplayName = computed(() => displayTeamName(props.match.away))
 
   const kickoffLabel = computed(() => formatTimeHtml(props.match.date))
 
@@ -191,7 +208,8 @@
             :style="{ background: match.homeColor }"
           />
         </span>
-        <span class="team-name-text">{{ match.home }}</span>
+        <span class="team-name-text">{{ homeDisplayName }}</span>
+        <ConferenceBadge v-if="!hideConferenceBadge" :badge="homeBadge" />
         <span class="team-rec">{{ match.homeRec }}</span>
       </div>
       <div v-if="!isNS" class="score-cell">
@@ -222,7 +240,8 @@
             :style="{ background: match.awayColor }"
           />
         </span>
-        <span class="team-name-text">{{ match.away }}</span>
+        <span class="team-name-text">{{ awayDisplayName }}</span>
+        <ConferenceBadge v-if="!hideConferenceBadge" :badge="awayBadge" />
         <span class="team-rec">{{ match.awayRec }}</span>
       </div>
       <div v-if="!isNS" class="score-cell">
@@ -290,7 +309,7 @@
       'home home status'
       'away away status';
     align-items: center;
-    gap: 0.3rem 0.5rem;
+    gap: 0.3rem 0.4rem;
     padding: 0.425rem 0.5rem;
     border-radius: 0.375rem;
     background: oklab(100% 0 0 / 0.06);
@@ -346,7 +365,7 @@
   .team-row {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.4rem;
     min-width: 0;
     padding: 0.125rem 0;
     position: relative; /* needed for winner-caret ::after positioning */
@@ -401,6 +420,7 @@
     font-size: var(--modal-copy-size);
     font-weight: 200;
     color: var(--color-text-primary);
+    letter-spacing: 0.025rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -471,7 +491,7 @@
     gap: 0.075rem;
     padding-left: 0.5rem;
     border-left: 1px solid oklab(100% 0 0 / 0.07);
-    /* width: 3.5rem; */
+    width: 4.5rem;
     flex-shrink: 0;
     text-align: center;
     position: relative;
@@ -485,7 +505,7 @@
   .game-block-away-wins .team-row-away::after {
     content: '';
     position: absolute;
-    right: calc(-0.1rem - 6px);
+    right: calc(-0.1rem - 5px);
     top: 52%;
     transform: translateY(-50%);
     width: 0;

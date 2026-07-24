@@ -13,6 +13,7 @@
   import { TEAM_COLORS, TEAM_COLOR_PAIRS } from '~/composables/useTeamColors'
   import type { Match } from '~/composables/useScores'
   import { calcQuality, calcBadge } from '~/composables/useScores'
+  import { useConferenceBadges } from '~/composables/useStandings'
 
   const props = defineProps<{
     open: boolean
@@ -349,9 +350,6 @@
   const nextGame = computed(() =>
     upcomingEvents.value.length ? toMatch(upcomingEvents.value[0]!) : null
   )
-  const moreUpcomingMatches = computed(() =>
-    upcomingEvents.value.slice(1).map(toMatch)
-  )
 
   // ── Team detail (leaders + roster) ───────────────────────────────────────
   interface StatLeader {
@@ -641,6 +639,12 @@
   const conference = computed(() =>
     displayTeam.value ? (TEAM_CONFERENCE[displayTeam.value] ?? '') : ''
   )
+
+  // ── Conference position badge (e.g. "1E") ─────────────────────────────────
+  const { badgeByTeam } = useConferenceBadges()
+  const displayBadge = computed(() =>
+    displayTeam.value ? badgeByTeam.value[displayTeam.value] : undefined
+  )
 </script>
 
 <template>
@@ -673,8 +677,11 @@
             />
             <div class="modal-team-info">
               <div class="modal-team-name">
-                <span class="name-full">{{ displayTeam }}</span>
-                <span class="name-short">{{ displayName }}</span>
+                <span class="name-text">
+                  <span class="name-full">{{ displayTeam }}</span>
+                  <span class="name-short">{{ displayName }}</span>
+                </span>
+                <ConferenceBadge :badge="displayBadge" />
               </div>
               <div class="modal-venue">
                 <span class="venue-full">{{ venue }}</span>
@@ -731,7 +738,6 @@
                   v-if="activeTab === 'schedule'"
                   :schedule-loading="scheduleLoading"
                   :schedule-error="scheduleError"
-                  :more-upcoming-matches="moreUpcomingMatches"
                   :next-game="nextGame"
                   :past-matches="pastMatches"
                   :has-fixtures="scheduleEvents.length > 0"
@@ -888,6 +894,17 @@
   }
 
   .modal-team-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .modal-team-name :deep(.conf-badge) {
+    transform: scale(1.3);
+  }
+
+  .name-text {
     font-family: var(--font-condensed);
     font-size: 1.65rem;
     font-weight: 400;
@@ -907,7 +924,7 @@
   }
 
   @media (max-width: 480px) {
-    .modal-team-name {
+    .name-text {
       font-size: 1.35rem;
     }
   }

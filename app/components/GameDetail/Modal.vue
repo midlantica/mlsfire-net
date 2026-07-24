@@ -2,9 +2,8 @@
   import type { Match } from '~/composables/useScores'
   import { useMatchDetail, type MatchEvent } from '~/composables/useMatchDetail'
   import { TEAM_LOGO, TEAM_ESPN_ID, TEAM_ABBREV } from '~/composables/useMyTeam'
-  import { TEAM_COLOR_PAIRS } from '~/composables/useTeamColors'
-  import { wcagContrast } from 'culori'
   import { useTimezone } from '~/composables/useTimezone'
+  import { useConferenceBadges } from '~/composables/useStandings'
 
   // ── Props / emits ─────────────────────────────────────────────────────────────
   const props = defineProps<{
@@ -312,6 +311,52 @@
     () => TEAM_SHORT_NAME[awayTeam.value] ?? awayTeam.value
   )
 
+  // ── Plain city names for the mobile events-row team label ────────────────
+  const TEAM_CITY_NAME: Record<string, string> = {
+    'Atlanta United FC': 'Atlanta',
+    'Austin FC': 'Austin',
+    'CF Montréal': 'Montréal',
+    'Charlotte FC': 'Charlotte',
+    'Chicago Fire FC': 'Chicago',
+    'Colorado Rapids': 'Colorado',
+    'Columbus Crew': 'Columbus',
+    'D.C. United': 'Washington D.C.',
+    'FC Cincinnati': 'Cincinnati',
+    'FC Dallas': 'Dallas',
+    'Houston Dynamo FC': 'Houston',
+    'Inter Miami CF': 'Miami',
+    'LA Galaxy': 'LA Galaxy',
+    LAFC: 'LAFC',
+    'Minnesota United FC': 'Minnesota',
+    'Nashville SC': 'Nashville',
+    'New England Revolution': 'New England',
+    'New York City FC': 'NYC',
+    'Orlando City SC': 'Orlando',
+    'Philadelphia Union': 'Philadelphia',
+    'Portland Timbers': 'Portland',
+    'Real Salt Lake': 'Salt Lake',
+    'Red Bull New York': 'NY Red Bulls',
+    'San Diego FC': 'San Diego',
+    'San Jose Earthquakes': 'San Jose',
+    'Seattle Sounders FC': 'Seattle',
+    'Sporting Kansas City': 'Kansas City',
+    'St. Louis City SC': 'St. Louis',
+    'Toronto FC': 'Toronto',
+    'Vancouver Whitecaps': 'Vancouver',
+  }
+
+  const homeEventLabel = computed(
+    () => TEAM_CITY_NAME[homeTeam.value] ?? homeAbbr.value
+  )
+  const awayEventLabel = computed(
+    () => TEAM_CITY_NAME[awayTeam.value] ?? awayAbbr.value
+  )
+
+  // ── Conference position badge (e.g. "8E" / "3W") ─────────────────────────
+  const { badgeByTeam } = useConferenceBadges()
+  const homeBadge = computed(() => badgeByTeam.value[homeTeam.value])
+  const awayBadge = computed(() => badgeByTeam.value[awayTeam.value])
+
   // Short 3-5 char abbreviations for the events row (STL, ATX, etc.)
   const homeTeamAbbrev = computed(
     () =>
@@ -321,22 +366,6 @@
     () =>
       TEAM_ABBREV[awayTeam.value] ?? awayTeam.value.slice(0, 4).toUpperCase()
   )
-
-  // ── Team label colors for the events row ─────────────────────────────────
-  // Use the team's primary color if it has ≥3:1 contrast on the dark header bg.
-  // Otherwise fall back to white.
-  const HEADER_BG = '#0d0f14' // approx oklch(12% 0.01 260)
-  const FALLBACK_LABEL = '#ffffff'
-
-  function teamLabelColor(teamName: string): string {
-    const primary = TEAM_COLOR_PAIRS[teamName]?.primary
-    if (!primary) return FALLBACK_LABEL
-    const ratio = wcagContrast(primary, HEADER_BG)
-    return ratio >= 3 ? primary : FALLBACK_LABEL
-  }
-
-  const homeLabelColor = computed(() => teamLabelColor(homeTeam.value))
-  const awayLabelColor = computed(() => teamLabelColor(awayTeam.value))
 
   // ── Match events filtered by home/away team ───────────────────────────────
   // Use the ESPN team IDs from the detail.teams array (matched by homeAway flag)
@@ -502,6 +531,7 @@
                     >
                       {{ homeAbbr }}
                     </button>
+                    <ConferenceBadge :badge="homeBadge" />
                     <span class="header-mobile-rec">{{ match.homeRec }}</span>
                     <span class="header-mobile-spacer" />
                     <span
@@ -539,6 +569,7 @@
                     >
                       {{ awayAbbr }}
                     </button>
+                    <ConferenceBadge :badge="awayBadge" />
                     <span class="header-mobile-rec">{{ match.awayRec }}</span>
                     <span class="header-mobile-spacer" />
                     <span
@@ -599,14 +630,18 @@
               <!-- Home team: info (right-aligned) + logo -->
               <div class="header-team header-team-home">
                 <div class="header-team-info header-team-info-home">
-                  <button
-                    class="header-team-name header-team-name-btn"
-                    @click.stop="emit('select-team', homeTeam)"
-                  >
-                    {{ homeTeam }}
-                  </button>
+                  <div class="header-team-name-line">
+                    <ConferenceBadge :badge="homeBadge" />
+                    <button
+                      class="header-team-name header-team-name-btn"
+                      @click.stop="emit('select-team', homeTeam)"
+                    >
+                      {{ homeTeam }}
+                    </button>
+                  </div>
                   <span class="header-team-rec">{{ match.homeRec }}</span>
                 </div>
+
                 <button
                   class="header-logo-btn"
                   @click.stop="emit('select-team', homeTeam)"
@@ -689,12 +724,15 @@
                   />
                 </button>
                 <div class="header-team-info header-team-info-away">
-                  <button
-                    class="header-team-name header-team-name-btn"
-                    @click.stop="emit('select-team', awayTeam)"
-                  >
-                    {{ awayTeam }}
-                  </button>
+                  <div class="header-team-name-line">
+                    <button
+                      class="header-team-name header-team-name-btn"
+                      @click.stop="emit('select-team', awayTeam)"
+                    >
+                      {{ awayTeam }}
+                    </button>
+                    <ConferenceBadge :badge="awayBadge" />
+                  </div>
                   <span class="header-team-rec">{{ match.awayRec }}</span>
                 </div>
               </div>
@@ -710,10 +748,12 @@
                 <!-- Goals line -->
                 <div class="events-goals-line">
                   <!-- Mobile only: team label (shown once) -->
+                  <span class="events-team-label">{{ homeEventLabel }}:</span>
+
                   <span
-                    class="events-team-label"
-                    :style="{ color: homeLabelColor }"
-                    >{{ homeTeamAbbrev }}:</span
+                    v-if="!homeGroupedGoals.length && !homeGroupedCards.length"
+                    class="event-none"
+                    >—</span
                   >
                   <span
                     v-for="(ev, i) in homeGroupedGoals"
@@ -759,10 +799,12 @@
                 <!-- Goals line -->
                 <div class="events-goals-line">
                   <!-- Mobile only: team label (shown once) -->
+                  <span class="events-team-label">{{ awayEventLabel }}:</span>
+
                   <span
-                    class="events-team-label"
-                    :style="{ color: awayLabelColor }"
-                    >{{ awayTeamAbbrev }}:</span
+                    v-if="!awayGroupedGoals.length && !awayGroupedCards.length"
+                    class="event-none"
+                    >—</span
                   >
                   <span
                     v-for="(ev, i) in awayGroupedGoals"
@@ -1287,6 +1329,20 @@
     letter-spacing: 0.04em;
   }
 
+  .header-team-name-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .header-team-home .header-team-name-line {
+    justify-content: flex-end;
+  }
+
+  .header-team-away .header-team-name-line {
+    justify-content: flex-start;
+  }
+
   /* Logo as clickable button — reset button chrome, add hover opacity */
   .header-logo-btn {
     background: none;
@@ -1480,8 +1536,10 @@
   }
 
   @media (max-width: 599px) {
-    .events-goals-line,
-    .events-cards-line {
+    .header-events-col-home .events-goals-line,
+    .header-events-col-home .events-cards-line,
+    .header-events-col-away .events-goals-line,
+    .header-events-col-away .events-cards-line {
       justify-content: center;
     }
   }
@@ -1491,6 +1549,7 @@
     display: none;
     font-weight: 400;
     color: oklab(100% 0 0 / 0.55);
+    text-transform: uppercase;
     letter-spacing: 0.08em;
     flex-shrink: 0;
   }
@@ -1507,6 +1566,11 @@
     align-items: center;
     gap: 0.2rem;
     white-space: nowrap;
+  }
+
+  .event-none {
+    color: oklab(100% 0 0 / 0.4);
+    font-weight: 200;
   }
 
   .event-icon {

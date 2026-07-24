@@ -4,7 +4,6 @@
   defineProps<{
     scheduleLoading: boolean
     scheduleError: string | null
-    moreUpcomingMatches: Match[]
     nextGame: Match | null
     pastMatches: Match[]
     hasFixtures: boolean
@@ -18,8 +17,6 @@
     'open-game-detail': [match: Match]
     'navigate-fixtures': []
   }>()
-
-  const showMoreGames = ref(false)
 </script>
 
 <template>
@@ -36,32 +33,11 @@
         >
       </p>
 
-      <div
-        v-if="showMoreGames && moreUpcomingMatches.length"
-        class="schedule-section"
-      >
-        <div class="schedule-list">
-          <GameBlock
-            v-for="match in moreUpcomingMatches"
-            :key="match.id"
-            :match="match"
-            @open-game-detail="emit('open-game-detail', $event)"
-          />
-        </div>
-      </div>
-
-      <button
-        v-if="moreUpcomingMatches.length"
-        class="show-future-btn"
-        @click="showMoreGames = !showMoreGames"
-      >
-        {{ showMoreGames ? 'Hide More Games' : 'Show More Games' }}
-      </button>
-
       <div v-if="nextGame" class="schedule-section">
         <div class="schedule-list schedule-list--single">
           <GameBlock
             :match="nextGame"
+            hide-conference-badge
             @open-game-detail="emit('open-game-detail', $event)"
           />
         </div>
@@ -73,6 +49,7 @@
             v-for="match in pastMatches"
             :key="match.id"
             :match="match"
+            hide-conference-badge
             @open-game-detail="emit('open-game-detail', $event)"
           />
         </div>
@@ -103,12 +80,19 @@
 
   .season-progress {
     font-family: var(--font-condensed);
-    font-size: 0.7rem;
+    font-size: 0.84rem;
     font-weight: 400;
     letter-spacing: 0.04em;
-    color: oklab(100% 0 0 / 0.5);
+    color: oklab(100% 0 0 / 0.6);
     text-align: center;
     padding-bottom: 0.25rem;
+  }
+
+  @media (max-width: 768px) {
+    .season-progress {
+      font-size: 0.7rem;
+      color: oklab(100% 0 0 / 0.5);
+    }
   }
 
   .schedule-section {
@@ -125,6 +109,10 @@
 
   .schedule-list--single {
     grid-template-columns: 1fr;
+  }
+
+  .schedule-list:not(.schedule-list--single) :deep(.team-rec) {
+    display: none;
   }
 
   .schedule-list--single :deep(.game-block) {
@@ -203,28 +191,6 @@
     }
   }
 
-  .show-future-btn {
-    font-family: var(--font-condensed);
-    font-size: 0.6125rem;
-    font-weight: 400;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-text-primary);
-    background: oklab(100% 0 0 / 0.05);
-    border: 1px solid oklab(100% 0 0 / 0.1);
-    border-radius: 20.375rem;
-    padding: 0.2rem 0.8rem;
-    cursor: pointer;
-    align-self: center;
-    transition:
-      background 0.15s,
-      border-color 0.15s;
-  }
-  .show-future-btn:hover {
-    background: oklab(100% 0 0 / 0.09);
-    border-color: oklab(100% 0 0 / 0.18);
-  }
-
   .tab-loading {
     display: flex;
     flex-direction: column;
@@ -263,10 +229,10 @@
 
   .schedule-fixtures-link {
     font-family: var(--font-condensed);
-    font-size: 0.7rem;
+    font-size: 0.84rem;
     font-weight: 300;
     letter-spacing: 0.06em;
-    color: oklab(100% 0 0 / 0.45);
+    color: oklab(100% 0 0 / 0.54);
     background: none;
     border: none;
     border-bottom: 1px solid oklab(100% 0 0 / 0.2);
@@ -279,5 +245,12 @@
   .schedule-fixtures-link:hover {
     color: oklab(100% 0 0 / 0.75);
     border-bottom-color: oklab(100% 0 0 / 0.5);
+  }
+
+  @media (max-width: 768px) {
+    .schedule-fixtures-link {
+      font-size: 0.7rem;
+      color: oklab(100% 0 0 / 0.45);
+    }
   }
 </style>

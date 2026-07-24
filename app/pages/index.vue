@@ -29,25 +29,6 @@
   const { weeks, activeTab, lastUpdated, fetchWeek, selectTab, hasLiveGames } =
     useScores()
 
-  // ── SSR pre-fetch: seed "this week" data before first paint ──────────────────
-  await useAsyncData('scores-this', async () => {
-    if (weeks.this.loaded) return null
-    try {
-      const data = await $fetch<Record<string, unknown>>(
-        '/api/scores?week=this'
-      )
-      if (!data._error) {
-        weeks.this.matches = transformMatches(data)
-        weeks.this.label = (data._weekLabel as string) || weeks.this.label
-        weeks.this.hiatus = (data._hiatus as string) ?? null
-        weeks.this.loaded = true
-      }
-    } catch {
-      // silently ignore — client-side initialLoad will retry
-    }
-    return null
-  })
-
   // ── Standings composable ──────────────────────────────────────────────────────
   const {
     conferences,
@@ -57,14 +38,50 @@
     fetchStandings,
   } = useStandings()
 
+  // ── SSR pre-fetch: seed "this week" data + conference standings before
+  // first paint (in parallel), so conference-position badges are available
+  // as soon as the Scores tab renders, without waiting on the Standings tab.
+  await Promise.all([
+    useAsyncData('scores-this', async () => {
+      if (weeks.this.loaded) return null
+      try {
+        const data = await $fetch<Record<string, unknown>>(
+          '/api/scores?week=this'
+        )
+        if (!data._error) {
+          weeks.this.matches = transformMatches(data)
+          weeks.this.label = (data._weekLabel as string) || weeks.this.label
+          weeks.this.hiatus = (data._hiatus as string) ?? null
+          weeks.this.loaded = true
+        }
+      } catch {
+        // silently ignore — client-side initialLoad will retry
+      }
+      return null
+    }),
+    useAsyncData('standings-eager', async () => {
+      if (standingsLoaded.value) return null
+      try {
+        await fetchStandings()
+      } catch {
+        // silently ignore — badges just won't render until a later fetch
+      }
+      return null
+    }),
+  ])
+
   // ── Stats composable ──────────────────────────────────────────────────────────
   const { loaded: statsLoaded, fetchStats } = useStats()
 
   // ── Standings conference tab (mobile) ─────────────────────────────────────────
   const confTab = ref('')
-  watch(conferences, (val) => {
-    if (val.length && !confTab.value) confTab.value = val[0]?.name ?? ''
-  })
+  watch(
+    conferences,
+    (val) => {
+      if (val.length && !confTab.value) confTab.value = val[0]?.name ?? ''
+    },
+    { immediate: true }
+  )
 
   // ── Game detail modal state ───────────────────────────────────────────────────
   const gameDetailOpen = ref(false)
@@ -577,7 +594,7 @@
 
   @media (max-width: 420px) {
     .page {
-      padding: 0.3rem 0.625rem 0.5rem;
+      padding: 0.5rem 0.625rem 0.5rem;
     }
   }
 

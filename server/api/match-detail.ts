@@ -345,19 +345,35 @@ export default defineEventHandler(async (event) => {
     // Head-to-head
     // ESPN returns headToHeadGames as [{ team, events: [...] }]
     // We flatten all events from the first entry (home team perspective)
-    const h2hRaw = (raw.headToHeadGames as Array<Record<string, unknown>>) ?? []
-    const h2hFirst = h2hRaw[0]
-    const h2hEvents: Array<Record<string, unknown>> = h2hFirst
-      ? ((h2hFirst.events as Array<Record<string, unknown>>) ?? [])
-      : []
-    const headToHead = h2hEvents.slice(0, 5).map((g) => ({
-      id: g.id as string,
-      date: g.gameDate as string,
-      score: g.score as string,
-      result: g.gameResult as string, // W/L/D from home team perspective
-      atVs: g.atVs as string,
-      competition: g.competitionName as string,
-    }))
+    const currentHomeTeamId = teams.find((t) => t.homeAway === 'home')?.id
+    const seriesRaw = (raw.seasonseries as Array<Record<string, unknown>>) ?? []
+    const h2hSeries =
+      seriesRaw.find((s) => s.type === 'head-to-head') ?? seriesRaw[0]
+    const h2hEvents =
+      (h2hSeries?.events as Array<Record<string, unknown>>) ?? []
+    const headToHead = h2hEvents.slice(0, 5).map((g) => {
+      const gCompetitors =
+        (g.competitors as Array<Record<string, unknown>>) ?? []
+      const refComp =
+        gCompetitors.find(
+          (c) => (c.team as Record<string, unknown>)?.id === currentHomeTeamId
+        ) ?? gCompetitors[0]
+      const oppComp = gCompetitors.find((c) => c !== refComp) ?? gCompetitors[1]
+      const atVs = refComp?.homeAway === 'home' ? 'vs' : 'at'
+      const refScore = (refComp?.score as string) ?? '–'
+      const oppScore = (oppComp?.score as string) ?? '–'
+      let result = 'D'
+      if (refComp?.winner) result = 'W'
+      else if (oppComp?.winner) result = 'L'
+      return {
+        id: g.id as string,
+        date: g.date as string,
+        score: `${refScore}-${oppScore}`,
+        result,
+        atVs,
+        competition: g.competitionName as string,
+      }
+    })
 
     // Game info
     const gameInfo = raw.gameInfo as Record<string, unknown> | undefined

@@ -1,4 +1,5 @@
 import { TEAM_CONFERENCE } from '~/composables/useMyTeam'
+import { normalizeTeamName } from '~/composables/useScores'
 
 export interface StandingEntry {
   rank: number
@@ -29,13 +30,16 @@ function getStat(
 }
 
 export function useStandings() {
-  const conferences = ref<ConferenceStandings[]>([])
-  const loading = ref(false)
-  const error = ref<string | null>(null)
-  const loaded = ref(false)
+  const conferences = useState<ConferenceStandings[]>(
+    'standings-conferences',
+    () => []
+  )
+  const loading = useState<boolean>('standings-loading', () => false)
+  const error = useState<string | null>('standings-error', () => null)
+  const loaded = useState<boolean>('standings-loaded', () => false)
 
   async function fetchStandings() {
-    if (loading.value) return
+    if (loading.value || loaded.value) return
     loading.value = true
     error.value = null
     try {
@@ -56,9 +60,10 @@ export function useStandings() {
               return {
                 rank: getStat(stats, 'rank'),
                 rankChange: getStat(stats, 'rankChange'),
-                team:
+                team: normalizeTeamName(
                   ((entry.team as Record<string, unknown>)
-                    ?.displayName as string) ?? '?',
+                    ?.displayName as string) ?? '?'
+                ),
                 gp: getStat(stats, 'gamesPlayed'),
                 w: getStat(stats, 'wins'),
                 d: getStat(stats, 'ties'),
@@ -99,4 +104,32 @@ export function useStandings() {
   }
 
   return { conferences, loading, error, loaded, fetchStandings }
+}
+
+export interface ConferenceBadge {
+  rank: number
+  letter: 'E' | 'W'
+}
+
+// ── Shared team → conference-rank badge lookup ────────────────────────────
+// Derived from the shared `conferences` state, keyed by full team display
+// name. Used by GameBlock and GameDetail/Modal to render the small
+// "8E" / "7W" style conference-position badge next to team names.
+export function useConferenceBadges() {
+  const { conferences } = useStandings()
+
+  const badgeByTeam = computed(() => {
+    const map: Record<string, ConferenceBadge> = {}
+    for (const conf of conferences.value) {
+      const letter: 'E' | 'W' = conf.name.toLowerCase().includes('western')
+        ? 'W'
+        : 'E'
+      for (const entry of conf.entries) {
+        map[entry.team] = { rank: entry.rank, letter }
+      }
+    }
+    return map
+  })
+
+  return { badgeByTeam }
 }

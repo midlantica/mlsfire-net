@@ -152,7 +152,7 @@ export const TEAM_SHORT_NAME: Record<string, string> = {
   'Real Salt Lake': 'RSL',
   'Red Bull New York': 'NY Red Bulls',
   'San Diego FC': 'San Diego',
-  'San Jose Earthquakes': 'San Jose',
+  'San Jose Earthquakes': 'SJ Earthquakes',
   'Seattle Sounders FC': 'Seattle',
   'Sporting Kansas City': 'Sporting KC',
   'St. Louis City SC': 'St. Louis',

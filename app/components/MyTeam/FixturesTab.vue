@@ -95,7 +95,19 @@
       timeZone: iana.value,
     })
   }
+
+  function fixtureScoreClass(evt: FixtureEvent, side: 'home' | 'away'): string {
+    if (evt.statusCode !== 'ft') return ''
+    const h = parseInt(evt.homeScore ?? '0', 10)
+    const a = parseInt(evt.awayScore ?? '0', 10)
+    if (h === a) return 'fx-score-draw'
+    const homeWins = h > a
+    return (side === 'home' ? homeWins : !homeWins)
+      ? 'fx-score-winner'
+      : 'fx-score-loser'
+  }
 </script>
+=======REPLACE>
 
 <template>
   <div v-if="loading" class="tab-loading">
@@ -138,7 +150,10 @@
               />
               <span
                 class="fx-team"
-                :class="{ 'fx-team-bold': evt.homeTeam === displayTeam }"
+                :class="{
+                  'fx-team-bold':
+                    fixtureScoreClass(evt, 'home') === 'fx-score-winner',
+                }"
                 >{{ fixtureTeamName(evt.homeTeam) }}</span
               >
             </button>
@@ -150,9 +165,15 @@
                   evt.statusCode === 'ht'
                 "
               >
-                <span class="fx-score"
-                  >{{ evt.homeScore }} – {{ evt.awayScore }}</span
-                >
+                <span class="fx-score">
+                  <span :class="fixtureScoreClass(evt, 'home')">{{
+                    evt.homeScore
+                  }}</span>
+                  <span class="fx-score-sep">–</span>
+                  <span :class="fixtureScoreClass(evt, 'away')">{{
+                    evt.awayScore
+                  }}</span>
+                </span>
                 <span
                   v-if="evt.statusCode === 'live' || evt.statusCode === 'ht'"
                   class="fx-badge fx-badge-live"
@@ -177,7 +198,10 @@
               />
               <span
                 class="fx-team"
-                :class="{ 'fx-team-bold': evt.awayTeam === displayTeam }"
+                :class="{
+                  'fx-team-bold':
+                    fixtureScoreClass(evt, 'away') === 'fx-score-winner',
+                }"
                 >{{ fixtureTeamName(evt.awayTeam) }}</span
               >
             </button>
@@ -387,10 +411,29 @@
   .fx-score {
     font-size: var(--modal-copy-size);
     font-weight: 400;
-    color: oklab(100% 0 0);
     letter-spacing: 0.04em;
     white-space: nowrap;
     text-align: center;
+  }
+
+  .fx-score-sep {
+    color: oklab(100% 0 0 / 0.4);
+    font-weight: 200;
+  }
+
+  .fx-score-winner {
+    color: oklab(100% 0 0);
+    font-weight: 700;
+  }
+
+  .fx-score-loser {
+    color: oklab(100% 0 0 / 0.45);
+    font-weight: 400;
+  }
+
+  .fx-score-draw {
+    color: oklab(100% 0 0 / 0.75);
+    font-weight: 400;
   }
 
   .fx-time {

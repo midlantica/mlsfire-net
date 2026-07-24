@@ -255,6 +255,7 @@
               v-for="m in slotMatches"
               :key="m.id"
               :match="m"
+              :hide-conference-badge="activeTab === 'last'"
               @open-game-detail="emit('open-game-detail', $event)"
             />
           </div>
