@@ -143,9 +143,9 @@
       >
     </div>
 
-    <!-- 🔥 Fire badge for top matchups -->
+    <!-- Fire badge for top matchups -->
     <div v-if="showFire" class="quality-row">
-      <span class="fire-badge">🔥</span>
+      <MatchBadgeIcon badge="fire" />
     </div>
   </div>
 </template>
@@ -393,10 +393,6 @@
     position: absolute;
     top: -0.2em;
     right: -0.2em;
-    line-height: 1;
-  }
-  .fire-badge {
-    font-size: 1rem;
     line-height: 1;
   }
 </style>

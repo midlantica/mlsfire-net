@@ -11,7 +11,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@netlify/blobs": "^10.7.9",
+    "@netlify/blobs": "^10.7.10",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "culori": "^4.0.2",
@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@types/culori": "^4.0.1",
-    "prettier": "^3.9.5",
+    "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript": "^6.0.3"
   }

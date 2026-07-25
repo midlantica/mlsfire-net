@@ -4,6 +4,7 @@
   import { TEAM_LOGO, TEAM_ESPN_ID, TEAM_ABBREV } from '~/composables/useMyTeam'
   import { useTimezone } from '~/composables/useTimezone'
   import { useConferenceBadges } from '~/composables/useStandings'
+  import { generateMatchPreview } from '~/composables/useMatchPreview'
 
   // ── Props / emits ─────────────────────────────────────────────────────────────
   const props = defineProps<{
@@ -74,8 +75,14 @@
   onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
   // ── Tab state ─────────────────────────────────────────────────────────────────
-  type ModalTab = 'overview' | 'leaders' | 'lineups' | 'h2h'
-  const TAB_ORDER: ModalTab[] = ['overview', 'leaders', 'lineups', 'h2h']
+  type ModalTab = 'preview' | 'overview' | 'leaders' | 'lineups' | 'h2h'
+  const TAB_ORDER: ModalTab[] = [
+    'preview',
+    'overview',
+    'leaders',
+    'lineups',
+    'h2h',
+  ]
   const activeTab = ref<ModalTab>('overview')
   const slideDir = ref<'left' | 'right'>('left')
 
@@ -89,7 +96,10 @@
   watch(
     () => props.open,
     (open) => {
-      if (open) activeTab.value = 'overview'
+      if (open) {
+        activeTab.value =
+          props.match?.status.code === 'ns' ? 'preview' : 'overview'
+      }
     }
   )
 
@@ -482,6 +492,72 @@
       null
     )
   })
+
+  // ── Match preview (pre-match "pre-cap") ───────────────────────────────────
+  const homeTeamDetailId = computed(
+    () =>
+      detail.value?.teams.find((t) => t.homeAway === 'home')?.id ??
+      homeEspnId.value ??
+      ''
+  )
+  const awayTeamDetailId = computed(
+    () =>
+      detail.value?.teams.find((t) => t.homeAway === 'away')?.id ??
+      awayEspnId.value ??
+      ''
+  )
+
+  const homePoints = computed(
+    () =>
+      detail.value?.teams.find((t) => t.homeAway === 'home')?.points ??
+      undefined
+  )
+  const awayPoints = computed(
+    () =>
+      detail.value?.teams.find((t) => t.homeAway === 'away')?.points ??
+      undefined
+  )
+
+  const homeForm = computed(
+    () =>
+      detail.value?.form?.find((f) => f.teamId === homeTeamDetailId.value)?.form
+  )
+  const awayForm = computed(
+    () =>
+      detail.value?.form?.find((f) => f.teamId === awayTeamDetailId.value)?.form
+  )
+
+  const homeSeasonLeader = computed(() =>
+    detail.value?.seasonLeaders?.find(
+      (s) => s.teamId === homeTeamDetailId.value
+    )
+  )
+  const awaySeasonLeader = computed(() =>
+    detail.value?.seasonLeaders?.find(
+      (s) => s.teamId === awayTeamDetailId.value
+    )
+  )
+
+  const matchPreview = computed(() => {
+    if (!props.match) return null
+    return generateMatchPreview({
+      eventId: props.match.id,
+      homeTeam: homeTeam.value,
+      awayTeam: awayTeam.value,
+      homeAbbr: homeAbbr.value,
+      awayAbbr: awayAbbr.value,
+      homePoints: homePoints.value,
+      awayPoints: awayPoints.value,
+      homeBadge: homeBadge.value,
+      awayBadge: awayBadge.value,
+      homeForm: homeForm.value,
+      awayForm: awayForm.value,
+      h2h: h2h.value,
+      homeLeader: homeSeasonLeader.value,
+      awayLeader: awaySeasonLeader.value,
+      previewOdds: detail.value?.previewOdds,
+    })
+  })
 </script>
 
 <template>
@@ -859,6 +935,14 @@
           <!-- ── Tabs ────────────────────────────────────────────────────────── -->
           <div class="modal-tabs">
             <button
+              v-if="match.status.code === 'ns'"
+              class="modal-tab"
+              :class="{ active: activeTab === 'preview' }"
+              @click="setTab('preview')"
+            >
+              Preview
+            </button>
+            <button
               class="modal-tab"
               :class="{ active: activeTab === 'overview' }"
               @click="setTab('overview')"
@@ -902,8 +986,13 @@
             <!-- ── Tab content with slide transition ──────────────────────── -->
             <Transition v-else :name="`tab-slide-${slideDir}`" mode="out-in">
               <div :key="activeTab" class="tab-pane">
+                <!-- ── PREVIEW TAB ─────────────────────────────────────────── -->
+                <template v-if="activeTab === 'preview'">
+                  <GameDetailPreviewTab :preview="matchPreview" />
+                </template>
+
                 <!-- ── STATS TAB ───────────────────────────────────────────── -->
-                <template v-if="activeTab === 'overview' && detail">
+                <template v-else-if="activeTab === 'overview' && detail">
                   <GameDetailStatsTab
                     :detail="detail"
                     :home-logo="homeLogo"

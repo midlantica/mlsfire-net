@@ -189,8 +189,11 @@
     @keydown.enter.space.prevent="emit('open-game-detail', match)"
   >
     <!-- Badge indicator -->
-    <span v-if="isFire" class="fire-badge" aria-label="Top match">🔥</span>
-    <span v-else-if="isWild" class="fire-badge" aria-label="Wild card">🎲</span>
+    <MatchBadgeIcon
+      v-if="match.badge"
+      :badge="match.badge"
+      class="match-badge"
+    />
 
     <!-- Home team row -->
     <div class="team-row team-row-home">
@@ -280,19 +283,12 @@
 </template>
 
 <style scoped>
-  /* Fire badge — absolutely positioned top-right corner */
-  .game-block {
-    position: relative; /* needed for fire-badge absolute positioning */
-  }
-
-  .fire-badge {
+  /* Match badge — absolutely positioned top-right corner */
+  .match-badge {
     position: absolute;
-    top: -0.15rem;
-    right: -0.15rem;
-    font-size: 1rem;
+    top: -0.3rem;
+    right: -0.2rem;
     line-height: 1;
-    pointer-events: none;
-    user-select: none;
     z-index: 1;
   }
 
@@ -312,10 +308,11 @@
     gap: 0.3rem 0.4rem;
     padding: 0.425rem 0.5rem;
     border-radius: 0.375rem;
-    background: oklab(100% 0 0 / 0.06);
+    background: oklab(100% 0 0 / 0.09);
     transition: border-color 0.15s;
     min-width: 0;
     cursor: pointer;
+    position: relative; /* anchors .match-badge */
   }
 
   .game-block:hover {

@@ -94,6 +94,24 @@ export interface MatchEvent {
   isSecondYellow?: boolean
 }
 
+export interface TeamForm {
+  teamId: string
+  form: string
+}
+
+export interface SeasonLeader {
+  teamId: string
+  name: string
+  goals?: number
+  matches?: number
+}
+
+export interface PreviewOdds {
+  overUnder?: number
+  favorite?: 'home' | 'away' | null
+  favoriteMoneyline?: number
+}
+
 export interface MatchDetail {
   eventId: string
   teams: MatchDetailTeam[]
@@ -105,6 +123,9 @@ export interface MatchDetail {
   info: MatchInfo
   matchEvents?: MatchEvent[]
   hasOdds?: boolean
+  form?: TeamForm[]
+  seasonLeaders?: SeasonLeader[]
+  previewOdds?: PreviewOdds
 }
 
 // ── Win probability from moneyline odds ──────────────────────────────────────

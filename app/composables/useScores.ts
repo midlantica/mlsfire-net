@@ -25,7 +25,7 @@ export interface Match {
   status: MatchStatus
   kickoffSlot: number // UTC epoch ms rounded to nearest 30min — for slot grouping
   qualityScore: number
-  badge: MatchBadge // 🔥 top clash | 🤞 wild card | null
+  badge: MatchBadge // hot flame = top clash | cool flame = wild card | null
 }
 
 export type WeekTab = 'last' | 'this' | 'next'
@@ -84,13 +84,13 @@ export function calcQuality(homeRec: string, awayRec: string): number {
  * Closeness is measured in points-per-game (W=3, D=1) rather than raw points,
  * so teams with games in hand aren't unfairly penalized.
  *
- * 🔥 "fire"  — The week's genuine top clashes:
+ * "fire" (hot flame icon) — The week's genuine top clashes:
  *   • Both teams have winning records (W > L), both have played ≥5 games,
  *     AND they're closely matched (within 0.5 pts/game of each other), OR
  *   • A known derby where both teams have winning records (≥5 games each) —
  *     a rivalry with real title-race stakes.
  *
- * 🎲 "wild"  — Selective underdog/derby interest:
+ * "wild" (cool flame icon) — Selective underdog/derby interest:
  *   • A known derby where the rivals are closely matched (within 0.75
  *     pts/game of each other), OR
  *   • Both teams are evenly humble (neither has a winning record, both have
@@ -118,16 +118,16 @@ export function calcBadge(
   const enoughGames = hGames >= 5 && aGames >= 5
   const derby = isDerby(home, away)
 
-  // 🔥 Both winning records + closely matched (min games guards early-season noise)
+  // Both winning records + closely matched (min games guards early-season noise)
   if (hWinning && aWinning && enoughGames && ppgDiff <= 0.5) return 'fire'
 
-  // 🔥 Derby where both rivals are winning — stakes on top of the grudge
+  // Derby where both rivals are winning — stakes on top of the grudge
   if (derby && hWinning && aWinning && enoughGames) return 'fire'
 
-  // 🎲 Derby with closely matched rivals
+  // Derby with closely matched rivals
   if (derby && ppgDiff <= 0.75) return 'wild'
 
-  // 🎲 Both evenly humble (not winning records), enough games played, very close
+  // Both evenly humble (not winning records), enough games played, very close
   const hHumble = !hWinning && hGames >= 6
   const aHumble = !aWinning && aGames >= 6
   if (hHumble && aHumble && ppgDiff <= 0.35) return 'wild'

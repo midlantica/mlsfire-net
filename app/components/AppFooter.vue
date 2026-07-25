@@ -4,9 +4,12 @@
 
 <template>
   <footer class="footer">
-    <span v-if="showScoreLegend" class="footer-info"
-      >🔥 both winning &amp; close · 🎲 derby or equal underdogs</span
-    >
+    <span v-if="showScoreLegend" class="footer-info">
+      <MatchBadgeIcon badge="fire" size="1rem" class="legend-icon" />
+      both winning &amp; close ·
+      <MatchBadgeIcon badge="wild" size="1rem" class="legend-icon" />
+      derby or equal underdogs
+    </span>
     <span class="footer-disclaimer"
       >This is an unofficial fan site and is not affiliated with, endorsed by,
       or sponsored by MLS. The MLS name, crest, and all team logos are
@@ -32,6 +35,11 @@
   .footer-info {
     font-size: 0.75rem;
     color: var(--color-text-secondary);
+  }
+
+  .legend-icon {
+    vertical-align: -0.2em;
+    margin-right: 0.1rem;
   }
 
   .footer-disclaimer {

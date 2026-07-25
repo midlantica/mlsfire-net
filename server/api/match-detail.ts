@@ -386,6 +386,70 @@ export default defineEventHandler(async (event) => {
       country: venueAddr?.country as string | undefined,
     }
 
+    // ── Recent form (last 5 results per team, most recent first) ─────────────
+    const lastFiveRaw =
+      (raw.lastFiveGames as Array<Record<string, unknown>>) ?? []
+    const form = lastFiveRaw.map((f) => {
+      const t = f.team as Record<string, unknown> | undefined
+      const events = (f.events as Array<Record<string, unknown>>) ?? []
+      const results = events
+        .slice(0, 5)
+        .map((e) => e.gameResult as string | undefined)
+        .filter((r): r is string => !!r)
+      return {
+        teamId: t?.id as string,
+        form: results.join('-'),
+      }
+    })
+
+    // ── Season goals leaders (ESPN shows these pre-match as "leaders to watch") ─
+    const seasonLeaders = leadersRaw
+      .map((l) => {
+        const t = l.team as Record<string, unknown> | undefined
+        const teamId = t?.id as string | undefined
+        const cats = (l.leaders as Array<Record<string, unknown>>) ?? []
+        const goalsCat = cats.find((c) => c.name === 'goalsLeaders')
+        if (!goalsCat || !teamId) return null
+        const topLeaders =
+          (goalsCat.leaders as Array<Record<string, unknown>>) ?? []
+        const top = topLeaders[0]
+        if (!top) return null
+        const ath = top.athlete as Record<string, unknown> | undefined
+        const displayValue = (top.displayValue as string | undefined) ?? ''
+        const goalsMatch = displayValue.match(/Goals:\s*(\d+)/i)
+        const matchesMatch = displayValue.match(/Matches:\s*(\d+)/i)
+        return {
+          teamId,
+          name:
+            (ath?.shortName as string) ?? (ath?.displayName as string) ?? '',
+          goals: goalsMatch?.[1] ? parseInt(goalsMatch[1], 10) : undefined,
+          matches: matchesMatch?.[1]
+            ? parseInt(matchesMatch[1], 10)
+            : undefined,
+        }
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+
+    // ── Pickcenter (over/under total + betting favorite) ─────────────────────
+    const pickcenterArr =
+      (raw.pickcenter as Array<Record<string, unknown>>) ?? []
+    const pick0 = pickcenterArr[0] ?? {}
+    const pHomeOdds = pick0.homeTeamOdds as Record<string, unknown> | undefined
+    const pAwayOdds = pick0.awayTeamOdds as Record<string, unknown> | undefined
+    const previewOdds = {
+      overUnder: pick0.overUnder as number | undefined,
+      favorite: pHomeOdds?.favorite
+        ? ('home' as const)
+        : pAwayOdds?.favorite
+          ? ('away' as const)
+          : null,
+      favoriteMoneyline: pHomeOdds?.favorite
+        ? (pHomeOdds?.moneyLine as number | undefined)
+        : pAwayOdds?.favorite
+          ? (pAwayOdds?.moneyLine as number | undefined)
+          : undefined,
+    }
+
     const result = {
       eventId,
       teams,
@@ -397,6 +461,9 @@ export default defineEventHandler(async (event) => {
       info,
       matchEvents,
       hasOdds: raw.hasOdds as boolean | undefined,
+      form,
+      seasonLeaders,
+      previewOdds,
     }
 
     const live = isLiveEvent(raw)
