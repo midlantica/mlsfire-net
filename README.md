@@ -101,6 +101,8 @@ server/api/
 ### Install
 
 ```bash
+git clone https://github.com/midlantica/mlsfire-net.git
+cd mlsfire-net
 pnpm install
 ```
 
