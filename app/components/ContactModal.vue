@@ -71,7 +71,8 @@
       >
         <div class="modal-panel">
           <div class="modal-header">
-            <h2 id="contact-title" class="modal-title">✉️ Contact</h2>
+            <h2 id="contact-title" class="modal-title">Contact</h2>
+
             <button class="modal-close" aria-label="Close" @click="handleClose">
               <CloseIcon />
             </button>
@@ -306,9 +307,9 @@
   }
 
   .btn-primary {
-    background: oklch(62% 0.21 38);
-    border: none;
-    color: oklab(100% 0 0);
+    background: oklab(100% 0 0 / 0.1);
+    border: 1px solid oklab(100% 0 0 / 0.15);
+    color: var(--color-text-primary);
     font-family: inherit;
     font-size: 1.05rem;
     font-weight: 600;
@@ -318,11 +319,13 @@
     cursor: pointer;
     transition:
       background 0.15s,
+      border-color 0.15s,
       opacity 0.15s;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: oklch(68% 0.2 38);
+    background: oklab(100% 0 0 / 0.18);
+    border-color: oklab(100% 0 0 / 0.28);
   }
 
   .btn-primary:disabled {
