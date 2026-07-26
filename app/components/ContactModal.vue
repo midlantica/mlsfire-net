@@ -40,7 +40,7 @@
     try {
       const body = new URLSearchParams({
         'form-name': 'contact',
-        subject: `MLSfire.net Form submitted by ${name.value}`,
+        subject: `MLSfire.net Form from ${name.value}`,
         name: name.value,
         email: email.value,
         message: message.value,
