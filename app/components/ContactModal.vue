@@ -40,10 +40,12 @@
     try {
       const body = new URLSearchParams({
         'form-name': 'contact',
+        subject: `MLSfire.net Form submitted by ${name.value}`,
         name: name.value,
         email: email.value,
         message: message.value,
       })
+
       const res = await fetch('/netlify-forms.html', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
