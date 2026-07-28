@@ -45,6 +45,44 @@ export async function fetchSeasonBlob(): Promise<
   }
 }
 
+interface LeaguesCupBlobCache {
+  events: Array<Record<string, unknown>>
+  fetchedAt: number
+}
+
+let leaguesCupBlobCache: LeaguesCupBlobCache | null = null
+
+/**
+ * Fetches the Leagues Cup scoreboard for the full 2026 calendar year.
+ * Leagues Cup is a supplementary competition — if this fetch fails we fail
+ * soft (return an empty list, or last-known-good cache) rather than
+ * breaking the MLS schedule response.
+ */
+export async function fetchLeaguesCupSeasonBlob(): Promise<
+  Array<Record<string, unknown>>
+> {
+  const now = Date.now()
+  if (
+    leaguesCupBlobCache &&
+    now - leaguesCupBlobCache.fetchedAt < SEASON_TTL_MS
+  ) {
+    return leaguesCupBlobCache.events
+  }
+
+  const url =
+    'https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=20260101-20261231&limit=200'
+
+  try {
+    const data = await $fetch<Record<string, unknown>>(url)
+    const events = (data.events as Array<Record<string, unknown>>) ?? []
+    leaguesCupBlobCache = { events, fetchedAt: now }
+    return events
+  } catch {
+    if (leaguesCupBlobCache) return leaguesCupBlobCache.events
+    return []
+  }
+}
+
 function isCompleted(evt: Record<string, unknown>): boolean {
   const comp = (evt.competitions as Array<Record<string, unknown>>)?.[0]
   const status = (comp?.status ?? evt.status) as

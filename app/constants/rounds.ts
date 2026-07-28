@@ -44,7 +44,7 @@ const LEAGUES_CUP_ROUNDS: Record<
 > = {
   // The icon already marks these as Leagues Cup, so the short label just
   // names the round.
-  'league-phase': { short: 'PHASE', label: 'League Phase', weight: 1 },
+  'league-phase': { short: 'PHASE ONE', label: 'Phase One', weight: 1 },
   quarterfinals: { short: 'QUARTER', label: 'Quarterfinal', weight: 2 },
   semifinals: { short: 'SEMI', label: 'Semifinal', weight: 3 },
   '3rd-place-match': { short: '3RD', label: 'Third Place Match', weight: 3 },

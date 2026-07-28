@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { transformMatches, type Match } from '~/composables/useScores'
   import { useMatchView } from '~/composables/useMatchView'
+  import { useStandings } from '~/composables/useStandings'
   import { TEAM_LIST } from '~/composables/useMyTeam'
   import {
     getCompetition,
@@ -150,7 +151,16 @@
     load()
   })
 
-  onMounted(load)
+  // The live wall pre-fetches standings on page load (so conference-position
+  // badges are ready before the Matches tab ever renders) — the sandbox has
+  // no such entry point, so it has to trigger that fetch itself or every
+  // MLS team on this page would silently show no badge at all.
+  const { fetchStandings } = useStandings()
+
+  onMounted(() => {
+    load()
+    fetchStandings()
+  })
 
   // ── Week maths (CT-anchored, Monday-start, matching the live wall) ─────────
   function shiftKey(dateKey: string, days: number): string {
@@ -220,6 +230,15 @@
   }
 
   const { weekByDayGroups } = useMatchView(weekMatches, activeWeek)
+
+  // Leagues Cup games always land on their own day, never sharing a day with
+  // MLS fixtures — so a day is a "Leagues Cup day" if every match on it is.
+  function isLeaguesCupDay(dayMatches: Match[]): boolean {
+    return (
+      dayMatches.length > 0 &&
+      dayMatches.every((m) => getCompetition(m.seasonSlug) === 'Leagues Cup')
+    )
+  }
 
   // ── Competition pills ─────────────────────────────────────────────────────
   const competitionOptions = computed<Competition[]>(() => {
@@ -416,7 +435,14 @@
         v-for="{ day, slots } in weekByDayGroups"
         :key="day.key"
         class="day-section"
+        :class="{ 'lc-day': isLeaguesCupDay(day.matches) }"
       >
+        <img
+          v-if="isLeaguesCupDay(day.matches)"
+          src="/leagues-cup-logo.svg"
+          alt="Leagues Cup"
+          class="lc-logo"
+        />
         <h2 class="day-heading">{{ day.label }}, {{ day.shortDate }}</h2>
 
         <div
@@ -661,7 +687,25 @@
 
   /* ── Day / slot headings ───────────────────────────────────────────────── */
   .day-section {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ── Leagues Cup day section ────────────────────────────────────────────── */
+  .day-section.lc-day {
+    background: #29000e;
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+
+  .lc-logo {
+    display: block;
+    height: 1.75rem;
+    width: auto;
+    margin-bottom: 0.75rem;
+  }
+
+  .day-section.lc-day .day-heading {
+    color: oklab(100% 0 0);
   }
 
   .day-heading {
@@ -675,6 +719,10 @@
 
   .slot-section {
     margin-bottom: 1rem;
+  }
+
+  .slot-section:last-child {
+    margin-bottom: 0;
   }
 
   .slot-heading {

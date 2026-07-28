@@ -1,6 +1,12 @@
 <script setup lang="ts">
   import { TEAM_LOGO } from '~/composables/useMyTeam'
+  import {
+    LIGAMX_LOGO,
+    LIGAMX_SHORT_NAME,
+    isLigaMxTeam,
+  } from '~/constants/ligamx'
   import { useTimezone } from '~/composables/useTimezone'
+  import { getCompetition } from '~/constants/rounds'
 
   interface FixtureEvent {
     id: string
@@ -11,7 +17,9 @@
     awayScore: string | null
     statusCode: 'ns' | 'ft' | 'live' | 'ht'
     statusClock?: string
+    seasonSlug: string | null
   }
+
   interface FixtureMonth {
     key: string
     label: string
@@ -70,7 +78,11 @@
   }
 
   function fixtureTeamName(name: string): string {
-    return FIXTURE_TEAM_NAME[name] ?? name
+    return FIXTURE_TEAM_NAME[name] ?? LIGAMX_SHORT_NAME[name] ?? name
+  }
+
+  function fixtureTeamLogo(name: string): string | null {
+    return TEAM_LOGO[name] ?? LIGAMX_LOGO[name] ?? null
   }
 
   function fixtureDate(iso: string): { weekday: string; date: string } {
@@ -107,7 +119,6 @@
       : 'fx-score-loser'
   }
 </script>
-=======REPLACE>
 
 <template>
   <div v-if="loading" class="tab-loading">
@@ -130,7 +141,11 @@
             v-for="(evt, ei) in month.events"
             :key="evt.id"
             class="fixtures-row"
-            :class="{ 'row-stripe': ei % 2 === 1 }"
+            :class="{
+              'row-stripe': ei % 2 === 1,
+              'row-leagues-cup':
+                getCompetition(evt.seasonSlug) === 'Leagues Cup',
+            }"
           >
             <div class="fx-date">
               <span class="fx-date-weekday">{{
@@ -138,13 +153,17 @@
               }}</span>
               <span class="fx-date-md">{{ fixtureDate(evt.date).date }}</span>
             </div>
-            <button
+            <component
+              :is="isLigaMxTeam(evt.homeTeam) ? 'div' : 'button'"
               class="fx-home fx-team-btn"
-              @click.stop="emit('select-team', evt.homeTeam)"
+              :class="{ 'fx-team-btn-static': isLigaMxTeam(evt.homeTeam) }"
+              @click.stop="
+                !isLigaMxTeam(evt.homeTeam) && emit('select-team', evt.homeTeam)
+              "
             >
               <img
-                v-if="TEAM_LOGO[evt.homeTeam]"
-                :src="TEAM_LOGO[evt.homeTeam]"
+                v-if="fixtureTeamLogo(evt.homeTeam)"
+                :src="fixtureTeamLogo(evt.homeTeam)!"
                 :alt="evt.homeTeam"
                 class="fx-logo"
               />
@@ -156,7 +175,7 @@
                 }"
                 >{{ fixtureTeamName(evt.homeTeam) }}</span
               >
-            </button>
+            </component>
             <div class="fx-center">
               <template
                 v-if="
@@ -186,13 +205,17 @@
                 <span class="fx-time">{{ fixtureTime(evt.date) }}</span>
               </template>
             </div>
-            <button
+            <component
+              :is="isLigaMxTeam(evt.awayTeam) ? 'div' : 'button'"
               class="fx-away fx-team-btn"
-              @click.stop="emit('select-team', evt.awayTeam)"
+              :class="{ 'fx-team-btn-static': isLigaMxTeam(evt.awayTeam) }"
+              @click.stop="
+                !isLigaMxTeam(evt.awayTeam) && emit('select-team', evt.awayTeam)
+              "
             >
               <img
-                v-if="TEAM_LOGO[evt.awayTeam]"
-                :src="TEAM_LOGO[evt.awayTeam]"
+                v-if="fixtureTeamLogo(evt.awayTeam)"
+                :src="fixtureTeamLogo(evt.awayTeam)!"
                 :alt="evt.awayTeam"
                 class="fx-logo"
               />
@@ -204,7 +227,7 @@
                 }"
                 >{{ fixtureTeamName(evt.awayTeam) }}</span
               >
-            </button>
+            </component>
           </div>
         </div>
       </div>
@@ -247,6 +270,10 @@
 
   .row-stripe {
     background: oklab(100% 0 0 / 0.03);
+  }
+
+  .row-leagues-cup {
+    background: #29000e;
   }
 
   .fixtures-wrap {
@@ -373,6 +400,13 @@
   .fx-team-btn:focus-visible {
     outline: 1px solid oklab(100% 0 0 / 0.4);
     outline-offset: 1px;
+  }
+
+  .fx-team-btn-static {
+    cursor: default;
+  }
+  .fx-team-btn-static:hover .fx-team {
+    text-decoration: none;
   }
 
   .fx-center {

@@ -79,10 +79,6 @@
     )
   )
 
-  const leaguesCupBadge = computed(
-    () => `lc-${leaguesCupHeat.value}` as 'lc-hot' | 'lc-cool' | 'lc-plain'
-  )
-
   const isFire = computed(
     () =>
       (isLeaguesCup.value && leaguesCupHeat.value === 'hot') ||
@@ -93,6 +89,12 @@
       (isLeaguesCup.value && leaguesCupHeat.value === 'cool') ||
       (!isLeaguesCup.value && props.match.badge === 'wild')
   )
+
+  const displayBadge = computed(() => {
+    if (isFire.value) return 'fire'
+    if (isWild.value) return 'wild'
+    return null
+  })
 
   // ── Penalty shootout ──────────────────────────────────────────────────────
   const shootout = computed(() => {
@@ -239,16 +241,10 @@
     @click="emit('open-game-detail', match)"
     @keydown.enter.space.prevent="emit('open-game-detail', match)"
   >
-    <!-- Badge indicator — Leagues Cup ties always show the cup mark instead -->
+    <!-- Badge indicator — same fire/wild icons for MLS and Leagues Cup -->
     <MatchBadgeIcon
-      v-if="isLeaguesCup"
-      :badge="leaguesCupBadge"
-      size="0.95rem"
-      class="match-badge"
-    />
-    <MatchBadgeIcon
-      v-else-if="match.badge"
-      :badge="match.badge"
+      v-if="displayBadge"
+      :badge="displayBadge"
       class="match-badge"
     />
 
@@ -270,7 +266,9 @@
         </span>
         <span class="team-name-text">{{ homeDisplayName }}</span>
         <ConferenceBadge v-if="!hideConferenceBadge" :badge="homeBadge" />
-        <span v-if="match.homeRec" class="team-rec">{{ match.homeRec }}</span>
+        <span v-if="match.homeRec && !isLeaguesCup" class="team-rec">{{
+          match.homeRec
+        }}</span>
       </div>
       <div v-if="!isNS" class="score-cell">
         <span
@@ -306,7 +304,9 @@
         </span>
         <span class="team-name-text">{{ awayDisplayName }}</span>
         <ConferenceBadge v-if="!hideConferenceBadge" :badge="awayBadge" />
-        <span v-if="match.awayRec" class="team-rec">{{ match.awayRec }}</span>
+        <span v-if="match.awayRec && !isLeaguesCup" class="team-rec">{{
+          match.awayRec
+        }}</span>
       </div>
       <div v-if="!isNS" class="score-cell">
         <span
@@ -648,7 +648,7 @@
     border-radius: 0.2rem;
     white-space: nowrap;
     text-align: center;
-    background: oklab(28% -0.01 -0.02 / 0.85);
+    background: oklab(0 0 0 / 0.3);
   }
 
   /* Live clock: fill the full column width so the clock never shifts the layout.

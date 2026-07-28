@@ -1,12 +1,14 @@
 export interface ClubStrength {
   mls: Record<string, number>
   ligamx: Record<string, number>
+  ligamxRank: Record<string, number>
 }
 
 export function useClubStrength() {
   const strength = useState<ClubStrength>('club-strength', () => ({
     mls: {},
     ligamx: {},
+    ligamxRank: {},
   }))
   const loaded = useState<boolean>('club-strength-loaded', () => false)
   const loading = useState<boolean>('club-strength-loading', () => false)
@@ -32,5 +34,12 @@ export function useClubStrength() {
     return typeof pct === 'number' ? pct : null
   }
 
-  return { strength, loaded, loading, load, strengthFor }
+  // Liga MX table rank (1 = top of table), null = unranked.
+  function ligaMxRankFor(team?: string | null): number | null {
+    if (!team) return null
+    const rank = strength.value.ligamxRank[team]
+    return typeof rank === 'number' ? rank : null
+  }
+
+  return { strength, loaded, loading, load, strengthFor, ligaMxRankFor }
 }

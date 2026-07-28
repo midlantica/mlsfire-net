@@ -3,6 +3,7 @@
   import { useStandings } from '~/composables/useStandings'
   import { useStats } from '~/composables/useStats'
   import { useAnalytics } from '~/composables/useAnalytics'
+  import { isLigaMxTeam } from '~/constants/ligamx'
   import type { Match } from '~/composables/useScores'
 
   // Register all app routes on this single page component
@@ -161,6 +162,9 @@
   }
 
   function openTeamModalFor(teamName: string) {
+    // Liga MX clubs only ever appear as Leagues Cup opponents — we don't
+    // source their season/schedule data, so there's no modal to show.
+    if (isLigaMxTeam(teamName)) return
     tabBeforeTeamModal = mainTab.value
     viewTeam.value = teamName
     teamModalOpen.value = true
@@ -175,6 +179,7 @@
   }
 
   function switchTeamModal(teamName: string) {
+    if (isLigaMxTeam(teamName)) return
     viewTeam.value = teamName
     teamModalOpen.value = true
     history.replaceState(

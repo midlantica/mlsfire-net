@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { useScores } from '~/composables/useScores'
   import { useMatchView } from '~/composables/useMatchView'
+  import { getCompetition } from '~/constants/rounds'
 
   import type { Match } from '~/composables/useScores'
 
@@ -18,6 +19,15 @@
   const hiatusMsg = computed(() => weeks[activeTab.value].hiatus ?? null)
 
   const { weekByDayGroups } = useMatchView(allWeekMatches, activeTab)
+
+  // Leagues Cup games always land on their own day, never sharing a day with
+  // MLS fixtures — so a day is a "Leagues Cup day" if every match on it is.
+  function isLeaguesCupDay(matches: Match[]): boolean {
+    return (
+      matches.length > 0 &&
+      matches.every((m) => getCompetition(m.seasonSlug) === 'Leagues Cup')
+    )
+  }
 
   // ── Collapse state ────────────────────────────────────────────────────────
   // Track open/closed state for each day and each time slot.
@@ -213,7 +223,15 @@
       v-for="{ day, slots } in weekByDayGroups"
       :key="day.key"
       class="day-section"
+      :class="{ 'lc-day': isLeaguesCupDay(day.matches) }"
     >
+      <img
+        v-if="isLeaguesCupDay(day.matches)"
+        src="/leagues-cup-logo.svg"
+        alt="Leagues Cup"
+        class="lc-logo"
+      />
+
       <!-- Day heading (collapsible) -->
       <button
         class="day-heading"
@@ -344,6 +362,31 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  /* ── Leagues Cup day section ────────────────────────────────────────────── */
+  /* Leagues Cup fixtures always occupy a whole day of their own, never mixed
+     with MLS matches — so we call it out with its own dark red backdrop and
+     the Leagues Cup wordmark, to disambiguate it from a regular MLS day. */
+  .day-section.lc-day {
+    background: #29000e;
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+
+  .lc-logo {
+    height: 1.75rem;
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .day-section.lc-day .day-heading {
+    color: oklab(100% 0 0);
+    border-bottom-color: oklab(100% 0 0 / 0.15);
+  }
+
+  .day-section.lc-day .day-heading:hover {
+    color: oklab(85% 0 0);
   }
 
   /* ── Day heading (collapsible button) ───────────────────────────────────── */

@@ -6,18 +6,30 @@
     badge: ConferenceBadge | null | undefined
   }>()
 
-  const tooltip = computed(() =>
+  const isLigaMx = computed(() => props.badge?.league === 'ligamx')
+
+  const tooltip = computed(() => {
+    if (!props.badge) return ''
+    if (isLigaMx.value) return `Liga MX ${props.badge.rank}`
+    return `#${props.badge.rank} ${props.badge.letter === 'W' ? 'Western' : 'Eastern'} Con`
+  })
+
+  const badgeText = computed(() =>
     props.badge
-      ? `#${props.badge.rank} ${props.badge.letter === 'W' ? 'Western' : 'Eastern'} Con`
+      ? isLigaMx.value
+        ? `M${props.badge.rank}`
+        : `${props.badge.rank}${props.badge.letter}`
       : ''
   )
 </script>
 
 <template>
-  <span v-if="badge" class="conf-badge-wrap">
-    <span class="conf-badge" :aria-label="tooltip"
-      >{{ badge.rank }}{{ badge.letter }}</span
-    >
+  <span
+    v-if="badge"
+    class="conf-badge-wrap"
+    :class="{ 'conf-badge-wrap-ligamx': isLigaMx }"
+  >
+    <span class="conf-badge" :aria-label="tooltip">{{ badgeText }}</span>
     <span class="conf-tip" role="tooltip">{{ tooltip }}</span>
   </span>
 </template>
@@ -37,12 +49,16 @@
     font-weight: 200;
     letter-spacing: 0.1em;
     color: oklch(96% 0.03 150);
-    background: oklch(0.4 0.16 147.26);
+    background: oklch(0.39 0.12 241.94);
     border-radius: 2px;
     padding: 0.01rem 0.15rem 0.04rem 0.225rem;
     line-height: 1.4;
     white-space: nowrap;
     flex-shrink: 0;
+  }
+
+  .conf-badge-wrap-ligamx .conf-badge {
+    background: oklch(0.4 0.16 147.26);
   }
 
   .conf-tip {
@@ -52,7 +68,7 @@
     transform: translateX(-50%) translateY(3px);
     padding: 0.25rem 0.5rem 0.3rem;
     border-radius: 5px;
-    background: oklch(0.55 0.19 146);
+    background: oklch(0.44 0.14 242);
     color: oklch(99% 0.01 150);
     font-size: 0.75rem;
     font-weight: 600;
@@ -75,6 +91,14 @@
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
+    border-top-color: oklch(0.44 0.14 242);
+  }
+
+  .conf-badge-wrap-ligamx .conf-tip {
+    background: oklch(0.55 0.19 146);
+  }
+
+  .conf-badge-wrap-ligamx .conf-tip::after {
     border-top-color: oklch(0.55 0.19 146);
   }
 

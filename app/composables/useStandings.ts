@@ -109,14 +109,20 @@ export function useStandings() {
 export interface ConferenceBadge {
   rank: number
   letter: 'E' | 'W'
+  league?: 'mls' | 'ligamx'
 }
 
 // ── Shared team → conference-rank badge lookup ────────────────────────────
 // Derived from the shared `conferences` state, keyed by full team display
 // name. Used by GameBlock and GameDetail/Modal to render the small
-// "8E" / "7W" style conference-position badge next to team names.
+// "8E" / "7W" style conference-position badge next to team names. Liga MX
+// clubs (no East/West split) are merged in from club-strength's table rank,
+// tagged `league: 'ligamx'` so ConferenceBadge.vue can render them as "M{n}".
 export function useConferenceBadges() {
   const { conferences } = useStandings()
+  const { strength, load: loadClubStrength } = useClubStrength()
+
+  loadClubStrength()
 
   const badgeByTeam = computed(() => {
     const map: Record<string, ConferenceBadge> = {}
@@ -125,8 +131,11 @@ export function useConferenceBadges() {
         ? 'W'
         : 'E'
       for (const entry of conf.entries) {
-        map[entry.team] = { rank: entry.rank, letter }
+        map[entry.team] = { rank: entry.rank, letter, league: 'mls' }
       }
+    }
+    for (const [team, rank] of Object.entries(strength.value.ligamxRank)) {
+      map[team] = { rank, letter: 'E', league: 'ligamx' }
     }
     return map
   })

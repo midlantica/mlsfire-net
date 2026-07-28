@@ -1,8 +1,7 @@
 <script setup lang="ts">
   import type { MatchBadge } from '~/composables/useScores'
 
-  type LeaguesCupBadge = 'lc-hot' | 'lc-cool' | 'lc-plain'
-  type BadgeKind = Exclude<MatchBadge, null> | LeaguesCupBadge
+  type BadgeKind = Exclude<MatchBadge, null>
 
   const props = withDefaults(
     defineProps<{
@@ -13,7 +12,7 @@
     { size: '1.15rem', tooltipSide: 'above' }
   )
 
-  const BADGE_ICONS: Record<BadgeKind, { src?: string; label: string }> = {
+  const BADGE_ICONS: Record<BadgeKind, { src: string; label: string }> = {
     fire: {
       src: '/fire-hot.svg',
       label: 'Top match — both teams winning and closely matched',
@@ -22,19 +21,9 @@
       src: '/fire-cool.svg',
       label: 'Could be good — derby or evenly matched underdogs',
     },
-    'lc-hot': {
-      label: 'Leagues Cup — marquee tie between two in-form clubs',
-    },
-    'lc-cool': {
-      label: 'Leagues Cup — could be good, evenly matched clubs',
-    },
-    'lc-plain': {
-      label: 'Leagues Cup match',
-    },
   }
 
   const icon = computed(() => BADGE_ICONS[props.badge])
-  const isLeaguesCup = computed(() => props.badge.startsWith('lc-'))
 
   // A pure CSS :hover tooltip only ever flashes for an instant here — the
   // whole card is a click target that opens the match modal, which covers
@@ -53,16 +42,7 @@
     @focus="showTooltip = true"
     @blur="showTooltip = false"
   >
-    <span
-      v-if="isLeaguesCup"
-      role="img"
-      :aria-label="icon.label"
-      class="match-badge-icon lc-mark"
-      :class="`lc-${badge.slice(3)}`"
-      :style="{ height: size, width: size }"
-    />
     <img
-      v-else
       :src="icon.src"
       :alt="icon.label"
       class="match-badge-icon"
@@ -122,24 +102,5 @@
     display: inline-block;
     user-select: none;
     -webkit-user-drag: none;
-  }
-
-  /* An <img> cannot be recoloured, so the symbol is painted as a mask. */
-  .lc-mark {
-    background: currentColor;
-    mask: url('/Leagues-cup-symbol.svg') no-repeat center / contain;
-    -webkit-mask: url('/Leagues-cup-symbol.svg') no-repeat center / contain;
-  }
-
-  .lc-hot {
-    color: oklch(65% 0.18 52.22);
-  }
-
-  .lc-cool {
-    color: oklch(52% 0.14 238.55);
-  }
-
-  .lc-plain {
-    color: oklch(65% 0 0);
   }
 </style>

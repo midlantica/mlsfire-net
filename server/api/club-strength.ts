@@ -8,11 +8,12 @@ type StandingsGroup = {
   children?: StandingsGroup[]
 }
 
-type ClubRow = { name: string; ppg: number; gamesPlayed: number }
+type ClubRow = { name: string; ppg: number; gamesPlayed: number; rank: number }
 
 export type ClubStrength = {
   mls: Record<string, number>
   ligamx: Record<string, number>
+  ligamxRank: Record<string, number>
 }
 
 const TTL_MS = 60 * 60_000
@@ -35,8 +36,9 @@ function flatten(group: StandingsGroup): ClubRow[] {
       const points = statOf(entry, 'points')
       if (points != null && gamesPlayed) ppg = points / gamesPlayed
     }
-    if (!name || ppg == null || gamesPlayed == null) continue
-    rows.push({ name, ppg, gamesPlayed })
+    const rank = statOf(entry, 'rank')
+    if (!name || ppg == null || gamesPlayed == null || rank == null) continue
+    rows.push({ name, ppg, gamesPlayed, rank })
   }
   for (const child of group.children ?? []) rows.push(...flatten(child))
   return rows
@@ -76,28 +78,38 @@ async function fetchMls(): Promise<Record<string, number>> {
 // live table is meaningless. Walk back until a completed tournament (a full
 // 17-game round robin) is found — ESPN mislabels these seasons, so the only
 // trustworthy signal is gamesPlayed.
-async function fetchLigaMx(): Promise<Record<string, number>> {
+async function fetchLigaMxRows(): Promise<ClubRow[]> {
   const year = new Date().getFullYear()
   for (const season of [year, year - 1, year - 2]) {
     const rows = await fetchStandings(
       `https://site.api.espn.com/apis/v2/sports/soccer/mex.1/standings?season=${season}`
     )
     if (rows.length >= 10 && rows.every((r) => r.gamesPlayed >= 17)) {
-      return toPercentiles(rows)
+      return rows
     }
   }
-  return {}
+  return []
+}
+
+function toRankMap(rows: ClubRow[]): Record<string, number> {
+  const map: Record<string, number> = {}
+  for (const row of rows) map[row.name] = row.rank
+  return map
 }
 
 export default defineEventHandler(async (): Promise<ClubStrength> => {
   const now = Date.now()
   if (cache && now - cache.fetchedAt < TTL_MS) return cache.data
 
-  const [mls, ligamx] = await Promise.all([fetchMls(), fetchLigaMx()])
-  const data: ClubStrength = { mls, ligamx }
+  const [mls, ligamxRows] = await Promise.all([fetchMls(), fetchLigaMxRows()])
+  const data: ClubStrength = {
+    mls,
+    ligamx: toPercentiles(ligamxRows),
+    ligamxRank: toRankMap(ligamxRows),
+  }
 
   // Only cache a useful answer, otherwise retry on the next request.
-  if (Object.keys(mls).length || Object.keys(ligamx).length) {
+  if (Object.keys(mls).length || ligamxRows.length) {
     cache = { fetchedAt: now, data }
   }
   return data

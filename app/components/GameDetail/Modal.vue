@@ -13,6 +13,7 @@
     calcLeaguesCupHeat,
   } from '~/constants/rounds'
   import { useClubStrength } from '~/composables/useClubStrength'
+  import { isLigaMxTeam } from '~/constants/ligamx'
 
   // ── Props / emits ─────────────────────────────────────────────────────────────
   const props = defineProps<{
@@ -294,9 +295,14 @@
     )
   )
 
-  const leaguesCupBadge = computed(
-    () => `lc-${leaguesCupHeat.value}` as 'lc-hot' | 'lc-cool' | 'lc-plain'
-  )
+  const displayBadge = computed(() => {
+    if (isLeaguesCup.value) {
+      if (leaguesCupHeat.value === 'hot') return 'fire'
+      if (leaguesCupHeat.value === 'cool') return 'wild'
+      return null
+    }
+    return props.match?.badge ?? null
+  })
 
   // ── Penalty shootout ─────────────────────────────────────────────────────
   const shootout = computed(() => {
@@ -320,13 +326,19 @@
   const awayLost = computed(() => lostBy('away'))
 
   // Cup ties against non-MLS clubs carry no league record, so the feed hands
-  // back the "–" placeholder — nothing worth giving a line to.
+  // back the "–" placeholder — nothing worth giving a line to. Leagues Cup
+  // records aren't meaningful for the tie itself either, so those are
+  // suppressed outright.
   function realRecord(rec?: string): string | null {
+    if (isLeaguesCup.value) return null
     return rec && /\d/.test(rec) ? rec : null
   }
 
   const homeRecord = computed(() => realRecord(props.match?.homeRec))
   const awayRecord = computed(() => realRecord(props.match?.awayRec))
+
+  const homeIsLigaMx = computed(() => isLigaMxTeam(homeTeam.value))
+  const awayIsLigaMx = computed(() => isLigaMxTeam(awayTeam.value))
 
   // ── Rosters ───────────────────────────────────────────────────────────────────
   const homeRoster = computed(() => {
@@ -620,8 +632,8 @@
       awayAbbr: awayAbbr.value,
       homePoints: homePoints.value,
       awayPoints: awayPoints.value,
-      homeBadge: homeBadge.value,
-      awayBadge: awayBadge.value,
+      homeBadge: homeIsLigaMx.value ? undefined : homeBadge.value,
+      awayBadge: awayIsLigaMx.value ? undefined : awayBadge.value,
       homeForm: homeForm.value,
       awayForm: awayForm.value,
       h2h: h2h.value,
@@ -684,9 +696,13 @@
                   <div class="header-mobile-teams">
                     <!-- Home team row -->
                     <div class="header-mobile-team">
-                      <button
+                      <component
+                        :is="homeIsLigaMx ? 'span' : 'button'"
                         class="header-logo-btn"
-                        @click.stop="emit('select-team', homeTeam)"
+                        :class="{ 'header-btn-static': homeIsLigaMx }"
+                        @click.stop="
+                          !homeIsLigaMx && emit('select-team', homeTeam)
+                        "
                       >
                         <img
                           v-if="homeLogo"
@@ -699,13 +715,18 @@
                           class="header-mobile-swatch"
                           :style="{ background: match.homeColor }"
                         />
-                      </button>
-                      <button
+                      </component>
+                      <component
+                        :is="homeIsLigaMx ? 'span' : 'button'"
                         class="header-mobile-name header-mobile-name-btn"
-                        @click.stop="emit('select-team', homeTeam)"
+                        :class="{ 'header-btn-static': homeIsLigaMx }"
+                        @click.stop="
+                          !homeIsLigaMx && emit('select-team', homeTeam)
+                        "
                       >
                         {{ homeAbbr }}
-                      </button>
+                      </component>
+
                       <ConferenceBadge :badge="homeBadge" />
                       <span v-if="homeRecord" class="header-mobile-rec">{{
                         homeRecord
@@ -726,9 +747,13 @@
                     </div>
                     <!-- Away team row -->
                     <div class="header-mobile-team">
-                      <button
+                      <component
+                        :is="awayIsLigaMx ? 'span' : 'button'"
                         class="header-logo-btn"
-                        @click.stop="emit('select-team', awayTeam)"
+                        :class="{ 'header-btn-static': awayIsLigaMx }"
+                        @click.stop="
+                          !awayIsLigaMx && emit('select-team', awayTeam)
+                        "
                       >
                         <img
                           v-if="awayLogo"
@@ -741,13 +766,18 @@
                           class="header-mobile-swatch"
                           :style="{ background: match.awayColor }"
                         />
-                      </button>
-                      <button
+                      </component>
+                      <component
+                        :is="awayIsLigaMx ? 'span' : 'button'"
                         class="header-mobile-name header-mobile-name-btn"
-                        @click.stop="emit('select-team', awayTeam)"
+                        :class="{ 'header-btn-static': awayIsLigaMx }"
+                        @click.stop="
+                          !awayIsLigaMx && emit('select-team', awayTeam)
+                        "
                       >
                         {{ awayAbbr }}
-                      </button>
+                      </component>
+
                       <ConferenceBadge :badge="awayBadge" />
                       <span v-if="awayRecord" class="header-mobile-rec">{{
                         awayRecord
@@ -807,21 +837,27 @@
                   <div class="header-team-info header-team-info-home">
                     <div class="header-team-name-line">
                       <ConferenceBadge :badge="homeBadge" />
-                      <button
+                      <component
+                        :is="homeIsLigaMx ? 'span' : 'button'"
                         class="header-team-name header-team-name-btn"
-                        @click.stop="emit('select-team', homeTeam)"
+                        :class="{ 'header-btn-static': homeIsLigaMx }"
+                        @click.stop="
+                          !homeIsLigaMx && emit('select-team', homeTeam)
+                        "
                       >
                         {{ homeTeam }}
-                      </button>
+                      </component>
                     </div>
                     <span v-if="homeRecord" class="header-team-rec">{{
                       homeRecord
                     }}</span>
                   </div>
 
-                  <button
+                  <component
+                    :is="homeIsLigaMx ? 'span' : 'button'"
                     class="header-logo-btn"
-                    @click.stop="emit('select-team', homeTeam)"
+                    :class="{ 'header-btn-static': homeIsLigaMx }"
+                    @click.stop="!homeIsLigaMx && emit('select-team', homeTeam)"
                   >
                     <img
                       v-if="homeLogo"
@@ -834,7 +870,7 @@
                       class="header-swatch"
                       :style="{ background: match.homeColor }"
                     />
-                  </button>
+                  </component>
                 </div>
 
                 <!-- Center: score + meta -->
@@ -887,9 +923,11 @@
 
                 <!-- Away team: logo + info (left-aligned) -->
                 <div class="header-team header-team-away">
-                  <button
+                  <component
+                    :is="awayIsLigaMx ? 'span' : 'button'"
                     class="header-logo-btn"
-                    @click.stop="emit('select-team', awayTeam)"
+                    :class="{ 'header-btn-static': awayIsLigaMx }"
+                    @click.stop="!awayIsLigaMx && emit('select-team', awayTeam)"
                   >
                     <img
                       v-if="awayLogo"
@@ -902,15 +940,19 @@
                       class="header-swatch"
                       :style="{ background: match.awayColor }"
                     />
-                  </button>
+                  </component>
                   <div class="header-team-info header-team-info-away">
                     <div class="header-team-name-line">
-                      <button
+                      <component
+                        :is="awayIsLigaMx ? 'span' : 'button'"
                         class="header-team-name header-team-name-btn"
-                        @click.stop="emit('select-team', awayTeam)"
+                        :class="{ 'header-btn-static': awayIsLigaMx }"
+                        @click.stop="
+                          !awayIsLigaMx && emit('select-team', awayTeam)
+                        "
                       >
                         {{ awayTeam }}
-                      </button>
+                      </component>
                       <ConferenceBadge :badge="awayBadge" />
                     </div>
                     <span v-if="awayRecord" class="header-team-rec">{{
@@ -1202,15 +1244,8 @@
              sits right on the panel's corner without being clipped by the
              panel's own overflow: hidden. -->
           <MatchBadgeIcon
-            v-if="isLeaguesCup"
-            :badge="leaguesCupBadge"
-            size="0.95rem"
-            tooltip-side="below"
-            class="modal-badge"
-          />
-          <MatchBadgeIcon
-            v-else-if="match.badge"
-            :badge="match.badge"
+            v-if="displayBadge"
+            :badge="displayBadge"
             tooltip-side="below"
             class="modal-badge"
           />
@@ -1361,6 +1396,17 @@
     text-decoration: underline;
     text-underline-offset: 0.2em;
     opacity: 0.85;
+  }
+
+  /* Liga MX opponents in Leagues Cup ties get no MyTeam modal (their season
+     data isn't sourced) — render as plain static text, no hover affordance. */
+  .header-btn-static {
+    cursor: default;
+  }
+
+  .header-btn-static:hover {
+    opacity: 1;
+    text-decoration: none;
   }
 
   .header-mobile-rec {

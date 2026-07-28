@@ -15,6 +15,7 @@
   import { calcQuality, calcBadge } from '~/composables/useScores'
   import { useConferenceBadges } from '~/composables/useStandings'
   import { slugFromSeasonTypeName } from '~/constants/rounds'
+  import { LIGAMX_LOGO } from '~/constants/ligamx'
 
   const props = defineProps<{
     open: boolean
@@ -328,13 +329,13 @@
       homeScore: evt.homeScore,
       homeShootout: null,
       homeColor: evt.homeColor,
-      homeLogo: TEAM_LOGO[evt.homeTeam] ?? null,
+      homeLogo: TEAM_LOGO[evt.homeTeam] ?? LIGAMX_LOGO[evt.homeTeam] ?? null,
       away: evt.awayTeam,
       awayRec: evt.awayRec,
       awayScore: evt.awayScore,
       awayShootout: null,
       awayColor: evt.awayColor,
-      awayLogo: TEAM_LOGO[evt.awayTeam] ?? null,
+      awayLogo: TEAM_LOGO[evt.awayTeam] ?? LIGAMX_LOGO[evt.awayTeam] ?? null,
       status: { code: evt.statusCode, clock: evt.statusClock },
       kickoffSlot: 0,
       qualityScore: calcQuality(evt.homeRec, evt.awayRec),
