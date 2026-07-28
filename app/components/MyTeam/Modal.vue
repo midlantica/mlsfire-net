@@ -14,6 +14,7 @@
   import type { Match } from '~/composables/useScores'
   import { calcQuality, calcBadge } from '~/composables/useScores'
   import { useConferenceBadges } from '~/composables/useStandings'
+  import { slugFromSeasonTypeName } from '~/constants/rounds'
 
   const props = defineProps<{
     open: boolean
@@ -145,6 +146,7 @@
     statusCode: 'ns' | 'ft' | 'live' | 'ht'
     statusClock?: string
     isHome: boolean
+    seasonSlug: string | null
   }
 
   const scheduleEvents = ref<ScheduleEvent[]>([])
@@ -216,6 +218,14 @@
       return t?.displayName === teamName || t?.id === teamId
     })
     const isHome = myTeamComp?.homeAway === 'home'
+    // The scoreboard feed exposes `season.slug`; the team-schedule feed instead
+    // exposes the same value as `seasonType.name` — accept either.
+    const season = evt.season as Record<string, unknown> | undefined
+    const seasonType = evt.seasonType as Record<string, unknown> | undefined
+    const seasonSlug =
+      (season?.slug as string) ??
+      slugFromSeasonTypeName(seasonType?.name as string)
+
     return {
       id: evt.id as string,
       name: evt.name as string,
@@ -238,6 +248,7 @@
       statusCode,
       statusClock: (status?.displayClock as string) || undefined,
       isHome,
+      seasonSlug,
     }
   }
 
@@ -315,17 +326,23 @@
       home: evt.homeTeam,
       homeRec: evt.homeRec,
       homeScore: evt.homeScore,
+      homeShootout: null,
       homeColor: evt.homeColor,
       homeLogo: TEAM_LOGO[evt.homeTeam] ?? null,
       away: evt.awayTeam,
       awayRec: evt.awayRec,
       awayScore: evt.awayScore,
+      awayShootout: null,
       awayColor: evt.awayColor,
       awayLogo: TEAM_LOGO[evt.awayTeam] ?? null,
       status: { code: evt.statusCode, clock: evt.statusClock },
       kickoffSlot: 0,
       qualityScore: calcQuality(evt.homeRec, evt.awayRec),
       badge: calcBadge(evt.homeRec, evt.awayRec, evt.homeTeam, evt.awayTeam),
+      seasonSlug: evt.seasonSlug,
+      // The team-schedule feed's note is only the leg number ("Game 1"), not
+      // the series state the scoreboard feed provides — so leave it unset.
+      seriesNote: null,
     }
   }
 

@@ -56,7 +56,7 @@
           aria-hidden="true"
         />
         <span class="team-name">{{ match.home }}</span>
-        <span class="team-rec">{{ match.homeRec }}</span>
+        <span v-if="match.homeRec" class="team-rec">{{ match.homeRec }}</span>
         <!-- Mobile-only inline score -->
         <span v-if="match.status.code !== 'ns'" class="team-score-inline">{{
           match.homeScore ?? '0'
@@ -122,7 +122,7 @@
           aria-hidden="true"
         />
         <span class="team-name">{{ match.away }}</span>
-        <span class="team-rec">{{ match.awayRec }}</span>
+        <span v-if="match.awayRec" class="team-rec">{{ match.awayRec }}</span>
         <!-- Mobile-only inline score -->
         <span v-if="match.status.code !== 'ns'" class="team-score-inline">{{
           match.awayScore ?? '0'

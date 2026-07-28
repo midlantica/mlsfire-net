@@ -3,6 +3,12 @@
   import { useTimezone } from '../composables/useTimezone'
   import { useConferenceBadges } from '../composables/useStandings'
   import { TEAM_SHORT_NAME } from '../composables/useMyTeam'
+  import {
+    getRoundInfo,
+    getCompetition,
+    calcLeaguesCupHeat,
+  } from '../constants/rounds'
+  import { useClubStrength } from '../composables/useClubStrength'
 
   const props = defineProps<{
     match: Match
@@ -32,6 +38,8 @@
 
   const kickoffLabel = computed(() => formatTimeHtml(props.match.date))
 
+  const roundInfo = computed(() => getRoundInfo(props.match.seasonSlug))
+
   const dateTimeLabel = computed(() => {
     const d = new Date(props.match.date)
     const day = d.toLocaleDateString('en-US', {
@@ -53,21 +61,64 @@
   const isFT = computed(() => props.match.status.code === 'ft')
   const isNS = computed(() => props.match.status.code === 'ns')
 
-  const isFire = computed(() => props.match.badge === 'fire')
-  const isWild = computed(() => props.match.badge === 'wild')
+  const { strengthFor, load: loadClubStrength } = useClubStrength()
+
+  const isLeaguesCup = computed(
+    () => getCompetition(props.match.seasonSlug) === 'Leagues Cup'
+  )
+
+  onMounted(() => {
+    if (isLeaguesCup.value) loadClubStrength()
+  })
+
+  const leaguesCupHeat = computed(() =>
+    calcLeaguesCupHeat(
+      strengthFor(props.match.home),
+      strengthFor(props.match.away),
+      props.match.seasonSlug
+    )
+  )
+
+  const leaguesCupBadge = computed(
+    () => `lc-${leaguesCupHeat.value}` as 'lc-hot' | 'lc-cool' | 'lc-plain'
+  )
+
+  const isFire = computed(
+    () =>
+      (isLeaguesCup.value && leaguesCupHeat.value === 'hot') ||
+      props.match.badge === 'fire'
+  )
+  const isWild = computed(
+    () =>
+      (isLeaguesCup.value && leaguesCupHeat.value === 'cool') ||
+      (!isLeaguesCup.value && props.match.badge === 'wild')
+  )
+
+  // ── Penalty shootout ──────────────────────────────────────────────────────
+  const shootout = computed(() => {
+    const m = props.match
+    if (m.homeShootout == null || m.awayShootout == null) return null
+    return { home: m.homeShootout, away: m.awayShootout }
+  })
 
   // ── Winner / loser (FT only) ──────────────────────────────────────────────
+  // A level scoreline is only a draw in league play; in a cup tie the shootout
+  // decides who advances, so it settles the winner styling instead.
   const homeWins = computed(() => {
     if (!isFT.value) return false
     const h = parseInt(props.match.homeScore ?? '0', 10)
     const a = parseInt(props.match.awayScore ?? '0', 10)
-    return h > a
+    if (h !== a) return h > a
+    const pens = shootout.value
+    return pens ? pens.home > pens.away : false
   })
   const awayWins = computed(() => {
     if (!isFT.value) return false
     const h = parseInt(props.match.homeScore ?? '0', 10)
     const a = parseInt(props.match.awayScore ?? '0', 10)
-    return a > h
+    if (h !== a) return a > h
+    const pens = shootout.value
+    return pens ? pens.away > pens.home : false
   })
 
   // ── Local clock ticker ────────────────────────────────────────────────────
@@ -188,9 +239,15 @@
     @click="emit('open-game-detail', match)"
     @keydown.enter.space.prevent="emit('open-game-detail', match)"
   >
-    <!-- Badge indicator -->
+    <!-- Badge indicator — Leagues Cup ties always show the cup mark instead -->
     <MatchBadgeIcon
-      v-if="match.badge"
+      v-if="isLeaguesCup"
+      :badge="leaguesCupBadge"
+      size="0.95rem"
+      class="match-badge"
+    />
+    <MatchBadgeIcon
+      v-else-if="match.badge"
       :badge="match.badge"
       class="match-badge"
     />
@@ -213,16 +270,20 @@
         </span>
         <span class="team-name-text">{{ homeDisplayName }}</span>
         <ConferenceBadge v-if="!hideConferenceBadge" :badge="homeBadge" />
-        <span class="team-rec">{{ match.homeRec }}</span>
+        <span v-if="match.homeRec" class="team-rec">{{ match.homeRec }}</span>
       </div>
       <div v-if="!isNS" class="score-cell">
         <span
           class="team-score"
           :class="{
-            'score-winner': homeWins,
-            'score-loser': isFT && !homeWins,
+            'score-winner': homeWins && !isLeaguesCup,
+            'score-loser': isFT && !homeWins && !isLeaguesCup,
+            'score-even': isFT && isLeaguesCup,
           }"
-          >{{ match.homeScore ?? '0' }}</span
+          >{{ match.homeScore ?? '0'
+          }}<span v-if="shootout" class="score-pens"
+            >({{ shootout.home }})</span
+          ></span
         >
       </div>
     </div>
@@ -245,22 +306,33 @@
         </span>
         <span class="team-name-text">{{ awayDisplayName }}</span>
         <ConferenceBadge v-if="!hideConferenceBadge" :badge="awayBadge" />
-        <span class="team-rec">{{ match.awayRec }}</span>
+        <span v-if="match.awayRec" class="team-rec">{{ match.awayRec }}</span>
       </div>
       <div v-if="!isNS" class="score-cell">
         <span
           class="team-score"
           :class="{
-            'score-winner': awayWins,
-            'score-loser': isFT && !awayWins,
+            'score-winner': awayWins && !isLeaguesCup,
+            'score-loser': isFT && !awayWins && !isLeaguesCup,
+            'score-even': isFT && isLeaguesCup,
           }"
-          >{{ match.awayScore ?? '0' }}</span
+          >{{ match.awayScore ?? '0'
+          }}<span v-if="shootout" class="score-pens"
+            >({{ shootout.away }})</span
+          ></span
         >
       </div>
     </div>
 
     <!-- Right column: status / time -->
     <div class="status-col">
+      <span
+        v-if="roundInfo"
+        class="round-chip"
+        :class="{ 'round-chip-cup': roundInfo.weight === 5 }"
+        :title="roundInfo.stage"
+        >{{ roundInfo.short }}</span
+      >
       <template v-if="isLive">
         <span class="badge badge-live">{{ displayClock }}</span>
         <span class="status-date">{{ dateTimeLabel.day }}</span>
@@ -283,11 +355,13 @@
 </template>
 
 <style scoped>
-  /* Match badge — absolutely positioned top-right corner */
-  .match-badge {
+  /* Match badge — absolutely positioned top-right corner.
+     Combined-selector to out-specificity MatchBadgeIcon's own
+     position:relative on the same fallthrough root element. */
+  .match-badge.match-badge-tooltip {
     position: absolute;
     top: -0.3rem;
-    right: -0.2rem;
+    right: -0.4rem;
     line-height: 1;
     z-index: 1;
   }
@@ -313,10 +387,19 @@
     min-width: 0;
     cursor: pointer;
     position: relative; /* anchors .match-badge */
+    z-index: 0; /* own stacking context, so the badge/tooltip never races
+                   against a neighboring card's box for paint order */
   }
 
   .game-block:hover {
     border-color: oklab(100% 0 0 / 0.2);
+  }
+
+  /* While this card's badge tooltip is open, guarantee it paints above
+     every sibling card, since the badge overflows outside this card's own
+     box (negative top/right) and can otherwise sit under a neighbor. */
+  .game-block:has(.tooltip-bubble) {
+    z-index: 20;
   }
 
   .game-block-live {
@@ -444,13 +527,17 @@
     margin-left: 0.25rem;
   }
 
+  /* Flex (rather than text-align) so the smaller shootout tally centres on the
+     score's midline instead of sitting on its baseline. */
   .team-score {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     font-size: 1.0625rem;
     font-weight: 700;
     color: var(--color-text-primary);
     line-height: 1;
     min-width: 1ch;
-    text-align: right;
   }
 
   /* Live/HT scores: bolder so they read as a live scoreline */
@@ -468,6 +555,22 @@
   /* FT loser: muted — distinct from winner but not invisible */
   .score-loser {
     color: oklab(65% 0 0);
+  }
+
+  /* Leagues Cup ties are settled on the night — no aggregate, no second leg —
+     so both scorelines carry equal weight instead of dimming the loser. The
+     caret still marks who advanced. */
+  .score-even {
+    color: oklab(94% 0 0);
+    font-weight: 400;
+  }
+
+  /* Penalty shootout tally, a thin space away from the score */
+  .score-pens {
+    font-size: 0.85em;
+    font-weight: inherit;
+    color: inherit;
+    margin-left: 0.35em;
   }
 
   /* Green winner caret ◀ */
@@ -527,20 +630,21 @@
   }
 
   .status-date {
-    font-size: 1rem;
+    font-size: 0.8rem;
     font-weight: 100;
     color: oklab(90% 0 0);
     white-space: nowrap;
     letter-spacing: 0.03rem;
+    line-height: 1.3;
   }
 
   /* Shared badge base */
   .badge {
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 200;
     letter-spacing: 0.12em;
     color: white;
-    padding: 0.15rem 0.35rem;
+    padding: 0rem 0.25rem 0.04rem 0.35rem;
     border-radius: 0.2rem;
     white-space: nowrap;
     text-align: center;
@@ -560,5 +664,29 @@
   .badge-ht,
   .badge-ft {
     width: auto;
+  }
+
+  /* Playoff round label — sits above the status badge in the fixed-width
+     column, so it must stay narrow enough for "WILD CARD" to fit. */
+  .round-chip {
+    font-size: 0.5625rem;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    color: oklab(88% 0 0 / 0.85);
+    background: oklab(100% 0 0 / 0.1);
+    border-radius: 0.15rem;
+    padding: 0.12rem 0.25rem;
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .round-chip-cup {
+    color: oklab(20% 0.02 0.03);
+    background: oklab(84% 0.03 0.14);
+    font-weight: 600;
   }
 </style>

@@ -1,5 +1,6 @@
 import { $fetch } from 'ofetch'
-import { TEAM_LOGO } from './useMyTeam'
+import { LIGAMX_LOGO } from '~/constants/ligamx'
+import { ALL_STAR_TEAMS, TEAM_LOGO } from './useMyTeam'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface MatchStatus {
@@ -15,17 +16,21 @@ export interface Match {
   home: string
   homeRec: string
   homeScore: string | null
+  homeShootout: number | null // penalty shootout tally, when the tie went to spot kicks
   homeColor: string // hex color for home team swatch
   homeLogo: string | null // local SVG logo path
   away: string
   awayRec: string
   awayScore: string | null
+  awayShootout: number | null
   awayColor: string // hex color for away team swatch
   awayLogo: string | null // local SVG logo path
   status: MatchStatus
   kickoffSlot: number // UTC epoch ms rounded to nearest 30min — for slot grouping
   qualityScore: number
   badge: MatchBadge // hot flame = top clash | cool flame = wild card | null
+  seasonSlug: string | null // ESPN season.slug — identifies the playoff round
+  seriesNote: string | null // e.g. "CIN leads series 1-0", "Series tied 1-1"
 }
 
 export type WeekTab = 'last' | 'this' | 'next'
@@ -67,8 +72,14 @@ function parseRec(summary: string): { w: number; l: number; d: number } {
   return { w: parts[0] ?? 0, d: parts[1] ?? 0, l: parts[2] ?? 0 }
 }
 
+// Cup ties against non-MLS clubs arrive with no league record at all, so
+// there is nothing to rank them on.
+function hasRecord(rec: string): boolean {
+  return /\d/.test(rec)
+}
+
 export function calcQuality(homeRec: string, awayRec: string): number {
-  if (homeRec === '–' || awayRec === '–') return 0
+  if (!hasRecord(homeRec) || !hasRecord(awayRec)) return 0
   const h = parseRec(homeRec)
   const a = parseRec(awayRec)
   const hPts = h.w * 3 + h.d
@@ -105,7 +116,7 @@ export function calcBadge(
   home: string,
   away: string
 ): MatchBadge {
-  if (homeRec === '–' || awayRec === '–') return null
+  if (!hasRecord(homeRec) || !hasRecord(awayRec)) return null
   const h = parseRec(homeRec)
   const a = parseRec(awayRec)
   const hGames = h.w + h.l + h.d
@@ -178,7 +189,9 @@ function parseRecord(competitor: Record<string, unknown>): string {
   const rec = records?.find(
     (r) => r.type === 'total' || r.abbreviation === 'Total'
   )
-  return rec ? (rec.summary as string) : '–'
+  // Cup opponents and playoff fixtures come back without a league record —
+  // better to render nothing than a placeholder dash.
+  return rec ? (rec.summary as string) : ''
 }
 
 function parseStatus(evt: Record<string, unknown>): MatchStatus {
@@ -240,42 +253,50 @@ export function transformMatches(data: Record<string, unknown>): Match[] {
       }
       const homeTeam = home.team as Record<string, unknown> | undefined
       const awayTeam = away.team as Record<string, unknown> | undefined
+      const homeName = normalizeTeamName(
+        (homeTeam?.displayName as string) || '?'
+      )
+      const awayName = normalizeTeamName(
+        (awayTeam?.displayName as string) || '?'
+      )
       const homeRec = parseRecord(home)
       const awayRec = parseRecord(away)
+
+      const season = evt.season as Record<string, unknown> | undefined
+      const notes = comp.notes as Array<Record<string, unknown>> | undefined
+      const headline = (notes?.[0]?.headline as string) || ''
+      // The shootout tally is rendered inline beside the score, so the prose
+      // version of the same fact would just be noise.
+      const isShootoutNote = /on penalties/i.test(headline)
+
       return {
         id: evt.id as string,
         date: evt.date as string,
-        home: normalizeTeamName((homeTeam?.displayName as string) || '?'),
-        homeRec,
+        home: homeName,
+        // All-Star squads have no meaningful season record — hide it
+        homeRec: ALL_STAR_TEAMS.includes(homeName) ? '' : homeRec,
         homeScore: (home.score as string) ?? null,
+        homeShootout: (home.shootoutScore as number) ?? null,
         homeColor: resolveTeamColor(
           homeTeam?.color as string,
           homeTeam?.alternateColor as string
         ),
-        homeLogo:
-          TEAM_LOGO[
-            normalizeTeamName((homeTeam?.displayName as string) || '')
-          ] ?? null,
-        away: normalizeTeamName((awayTeam?.displayName as string) || '?'),
-        awayRec,
+        homeLogo: TEAM_LOGO[homeName] ?? LIGAMX_LOGO[homeName] ?? null,
+        away: awayName,
+        awayRec: ALL_STAR_TEAMS.includes(awayName) ? '' : awayRec,
         awayScore: (away.score as string) ?? null,
+        awayShootout: (away.shootoutScore as number) ?? null,
         awayColor: resolveTeamColor(
           awayTeam?.color as string,
           awayTeam?.alternateColor as string
         ),
-        awayLogo:
-          TEAM_LOGO[
-            normalizeTeamName((awayTeam?.displayName as string) || '')
-          ] ?? null,
+        awayLogo: TEAM_LOGO[awayName] ?? LIGAMX_LOGO[awayName] ?? null,
         status: parseStatus(evt),
         kickoffSlot: toKickoffSlot(evt.date as string),
         qualityScore: calcQuality(homeRec, awayRec),
-        badge: calcBadge(
-          homeRec,
-          awayRec,
-          normalizeTeamName((homeTeam?.displayName as string) || '?'),
-          normalizeTeamName((awayTeam?.displayName as string) || '?')
-        ),
+        badge: calcBadge(homeRec, awayRec, homeName, awayName),
+        seasonSlug: (season?.slug as string) ?? null,
+        seriesNote: isShootoutNote ? null : headline || null,
       }
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())

@@ -7,7 +7,9 @@
 
   // Register all app routes on this single page component
   definePageMeta({
-    alias: ['/scores', '/standings', '/stats', '/team', '/game'],
+    // '/scores' retained as a legacy alias — it resolves to the Matches tab
+    // via the tabFromPath() fallback.
+    alias: ['/matches', '/scores', '/standings', '/stats', '/team', '/game'],
   })
 
   const router = useRouter()
@@ -15,12 +17,12 @@
   const { trackPageview } = useAnalytics()
 
   // ── Main tab ──────────────────────────────────────────────────────────────────
-  type MainTab = 'scores' | 'standings' | 'stats'
-  const VALID_TABS: MainTab[] = ['scores', 'standings', 'stats']
+  type MainTab = 'matches' | 'standings' | 'stats'
+  const VALID_TABS: MainTab[] = ['matches', 'standings', 'stats']
 
   function tabFromPath(): MainTab {
     const p = route.path.replace(/^\//, '') as MainTab
-    return VALID_TABS.includes(p) ? p : 'scores'
+    return VALID_TABS.includes(p) ? p : 'matches'
   }
 
   const mainTab = ref<MainTab>(tabFromPath())
@@ -40,7 +42,8 @@
 
   // ── SSR pre-fetch: seed "this week" data + conference standings before
   // first paint (in parallel), so conference-position badges are available
-  // as soon as the Scores tab renders, without waiting on the Standings tab.
+  // as soon as the Matches tab renders, without waiting on the Standings tab.
+
   await Promise.all([
     useAsyncData('scores-this', async () => {
       if (weeks.this.loaded) return null
@@ -125,7 +128,9 @@
   function closeGameDetail() {
     gameDetailOpen.value = false
     gameDetailMatch.value = null
-    router.push({ path: `/${mainTab.value === 'scores' ? '' : mainTab.value}` })
+    router.push({
+      path: `/${mainTab.value === 'matches' ? '' : mainTab.value}`,
+    })
   }
 
   // Called when user clicks a team name inside GameDetailModal.
@@ -141,14 +146,14 @@
   const viewTeam = ref<string | null>(null)
   // Remember which main tab was active when the team modal was opened,
   // so we can restore it when the modal closes.
-  let tabBeforeTeamModal: MainTab = 'scores'
+  let tabBeforeTeamModal: MainTab = 'matches'
 
   function openTeamModal() {
     tabBeforeTeamModal = mainTab.value
     teamModalOpen.value = true
     viewTeam.value = null
     // Use history API directly so the route watcher never fires and
-    // can't reset mainTab (e.g. from 'standings' back to 'scores').
+    // can't reset mainTab (e.g. from 'standings' back to 'matches').
     history.pushState(history.state, '', '/team')
     // Track the modal open as a /team pageview (no team name — we only care
     // that the modal was opened, not which specific team)
@@ -183,12 +188,12 @@
     teamModalOpen.value = false
     viewTeam.value = null
     const returnTab = tabBeforeTeamModal
-    tabBeforeTeamModal = 'scores'
+    tabBeforeTeamModal = 'matches'
     mainTab.value = returnTab
     history.replaceState(
       history.state,
       '',
-      `/${returnTab === 'scores' ? '' : returnTab}`
+      `/${returnTab === 'matches' ? '' : returnTab}`
     )
   }
 
@@ -199,11 +204,11 @@
     viewTeam.value = null
     // Restore the tab that was active before the modal was opened.
     const returnTab = tabBeforeTeamModal
-    tabBeforeTeamModal = 'scores'
+    tabBeforeTeamModal = 'matches'
     mainTab.value = returnTab
     // Use history.replaceState directly so the route watcher never fires
     // and can't race with an immediately-following openGameDetail call.
-    const closePath = `/${returnTab === 'scores' ? '' : returnTab}`
+    const closePath = `/${returnTab === 'matches' ? '' : returnTab}`
     history.replaceState(history.state, '', closePath)
   }
 
@@ -239,7 +244,7 @@
 
   // ── Navigation ────────────────────────────────────────────────────────────────
   function goHome() {
-    mainTab.value = 'scores'
+    mainTab.value = 'matches'
     selectTab('this')
     router.push('/')
   }
@@ -248,7 +253,7 @@
     await applyTab(tab)
     // router.push silently no-ops on aliased routes (same component), so use
     // history.pushState directly to keep the URL in sync.
-    const path = tab === 'scores' ? '/' : `/${tab}`
+    const path = tab === 'matches' ? '/' : `/${tab}`
     history.pushState(history.state, '', path)
   }
 
@@ -264,7 +269,7 @@
         // Still update the main tab if we landed on a non-modal path
         if (path !== '/game' && path !== '/team') {
           const tab = path.replace(/^\//, '') as MainTab
-          await applyTab(VALID_TABS.includes(tab) ? tab : 'scores')
+          await applyTab(VALID_TABS.includes(tab) ? tab : 'matches')
         }
         return
       }
@@ -297,7 +302,7 @@
         teamModalOpen.value = false
         viewTeam.value = null
         const tab = path.replace(/^\//, '') as MainTab
-        await applyTab(VALID_TABS.includes(tab) ? tab : 'scores')
+        await applyTab(VALID_TABS.includes(tab) ? tab : 'matches')
       }
     }
   )
@@ -394,14 +399,14 @@
       const name = route.query.name as string | undefined
       viewTeam.value = name ?? null
       teamModalOpen.value = true
-      await applyTab('scores')
+      await applyTab('matches')
     } else if (isGameRoute) {
       // Open modal immediately — match data will be set after initialLoad
       gameDetailOpen.value = true
-      await applyTab('scores')
+      await applyTab('matches')
     } else {
       const tab = path.replace(/^\//, '') as MainTab
-      await applyTab(VALID_TABS.includes(tab) ? tab : 'scores')
+      await applyTab(VALID_TABS.includes(tab) ? tab : 'matches')
     }
 
     await initialLoad()
@@ -451,15 +456,16 @@
       <AppHeader @go-home="goHome" @open-team-modal="openTeamModal" />
     </ClientOnly>
 
-    <!-- ── Main tabs: Scores / Standings / Stats ────────────────────────── -->
+    <!-- ── Main tabs: Matches / Standings / Stats ───────────────────────── -->
     <div class="main-tabs">
       <button
         class="main-tab"
-        :class="{ active: mainTab === 'scores' }"
-        @click="switchMainTab('scores')"
+        :class="{ active: mainTab === 'matches' }"
+        @click="switchMainTab('matches')"
       >
-        Scores
+        Matches
       </button>
+
       <button
         class="main-tab"
         :class="{ active: mainTab === 'standings' }"
@@ -483,8 +489,8 @@
 
     <!-- ── Content area ──────────────────────────────────────────────────── -->
     <div class="content-area">
-      <!-- ── Scores tab ────────────────────────────────────────────────── -->
-      <section v-if="mainTab === 'scores'" class="tab-section">
+      <!-- ── Matches tab ───────────────────────────────────────────────── -->
+      <section v-if="mainTab === 'matches'" class="tab-section">
         <ScoresSection
           @select-team="openTeamModalFor"
           @open-game-detail="openGameDetail"
@@ -558,7 +564,7 @@
       </section>
 
       <!-- ── Footer ───────────────────────────────────────────────────── -->
-      <AppFooter :show-score-legend="mainTab === 'scores'" />
+      <AppFooter :show-score-legend="mainTab === 'matches'" />
     </div>
 
     <!-- ── My Team Modal (client-only) ──────────────────────────────────── -->

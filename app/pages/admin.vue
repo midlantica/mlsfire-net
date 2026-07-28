@@ -19,12 +19,24 @@
 
   // All hard-coded routes in the app
   const KNOWN_ROUTES = [
-    { path: '/', label: 'Home / Scores' },
+    { path: '/', label: 'Home / Matches' },
     { path: '/standings', label: 'Standings' },
     { path: '/stats', label: 'Stats' },
     { path: '/team', label: 'Team Modal' },
     { path: '/game', label: 'Game Detail' },
   ]
+
+  // The Matches tab renders at '/'. Historical hits were recorded under
+  // '/scores' and direct entries now land on '/matches' — fold both into '/'
+  // so the rename doesn't split or discard existing view counts.
+  const PATH_ALIASES: Record<string, string> = {
+    '/scores': '/',
+    '/matches': '/',
+  }
+
+  function canonicalPath(path: string) {
+    return PATH_ALIASES[path] ?? path
+  }
 
   const { data, pending, error, refresh } = await useFetch<AnalyticsData>(
     '/api/analytics',
@@ -63,8 +75,12 @@
     const map = new Map<string, number>()
     // Seed with known routes at 0
     for (const r of KNOWN_ROUTES) map.set(r.path, 0)
-    // Fill in actual data
-    for (const p of source) map.set(p.path, p.views)
+    // Fill in actual data, folding aliased paths into their canonical route
+    // so pre-rename '/scores' views are added to '/' rather than dropped.
+    for (const p of source) {
+      const key = canonicalPath(p.path)
+      map.set(key, (map.get(key) ?? 0) + p.views)
+    }
 
     return Array.from(map.entries())
       .map(([path, views]) => ({ path, views }))
@@ -306,6 +322,10 @@
               <span class="route-desc">Analytics Dashboard</span>
             </div>
           </div>
+          <p class="routes-note">
+            <code>/matches</code> and the legacy <code>/scores</code> both fold
+            into <code>/</code> above, so the rename preserves all prior counts.
+          </p>
         </div>
       </div>
 
@@ -720,6 +740,18 @@
   .route-desc {
     color: #64748b;
     font-size: 0.72rem;
+  }
+
+  .routes-note {
+    margin-top: 0.6rem;
+    font-size: 0.68rem;
+    line-height: 1.5;
+    color: #475569;
+  }
+
+  .routes-note code {
+    font-family: ui-monospace, monospace;
+    color: #60a5fa;
   }
 
   /* ── Hourly chart ── */

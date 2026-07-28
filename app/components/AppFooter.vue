@@ -13,6 +13,16 @@
       <MatchBadgeIcon badge="wild" size="1rem" class="legend-icon" />
       derby or equal underdogs
     </span>
+    <span v-if="showScoreLegend" class="footer-info">
+      <MatchBadgeIcon badge="lc-hot" size="0.8rem" class="legend-icon" />
+      Leagues Cup marquee tie ·
+
+      <MatchBadgeIcon badge="lc-cool" size="0.8rem" class="legend-icon" />
+      Leagues Cup, could be good ·
+      <MatchBadgeIcon badge="lc-plain" size="0.8rem" class="legend-icon" />
+
+      Leagues Cup match
+    </span>
     <span class="footer-credit">
       MLS Fire 🔥 &bull; {{ year }} &bull; Vibe coded by Drew Harper &bull;
       <button class="footer-contact-link" @click="contactOpen = true">

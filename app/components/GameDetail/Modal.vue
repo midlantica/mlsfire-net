@@ -5,6 +5,14 @@
   import { useTimezone } from '~/composables/useTimezone'
   import { useConferenceBadges } from '~/composables/useStandings'
   import { generateMatchPreview } from '~/composables/useMatchPreview'
+  import { getStadiumInfo } from '~/constants/venues'
+  import {
+    getRoundInfo,
+    isSeriesDecided,
+    getCompetition,
+    calcLeaguesCupHeat,
+  } from '~/constants/rounds'
+  import { useClubStrength } from '~/composables/useClubStrength'
 
   // ── Props / emits ─────────────────────────────────────────────────────────────
   const props = defineProps<{
@@ -255,6 +263,70 @@
     const parts = [matchVenue.value, matchAttendance.value].filter(Boolean)
     return parts.length ? parts.join(' - ') : null
   })
+
+  // ── Stadium detail modal ─────────────────────────────────────────────────
+  const showStadiumModal = ref(false)
+  const stadiumInfo = computed(() => getStadiumInfo(detail.value?.info.venue))
+
+  function openStadiumModal() {
+    if (stadiumInfo.value) showStadiumModal.value = true
+  }
+
+  // ── Playoff stage / series state ─────────────────────────────────────────
+  const roundInfo = computed(() => getRoundInfo(props.match?.seasonSlug))
+  const seriesNote = computed(() => props.match?.seriesNote ?? null)
+  const seriesDecided = computed(() => isSeriesDecided(seriesNote.value))
+  const isLeaguesCup = computed(
+    () => getCompetition(props.match?.seasonSlug) === 'Leagues Cup'
+  )
+
+  const { strengthFor, load: loadClubStrength } = useClubStrength()
+
+  onMounted(() => {
+    if (isLeaguesCup.value) loadClubStrength()
+  })
+
+  const leaguesCupHeat = computed(() =>
+    calcLeaguesCupHeat(
+      strengthFor(props.match?.home),
+      strengthFor(props.match?.away),
+      props.match?.seasonSlug
+    )
+  )
+
+  const leaguesCupBadge = computed(
+    () => `lc-${leaguesCupHeat.value}` as 'lc-hot' | 'lc-cool' | 'lc-plain'
+  )
+
+  // ── Penalty shootout ─────────────────────────────────────────────────────
+  const shootout = computed(() => {
+    const m = props.match
+    if (!m || m.homeShootout == null || m.awayShootout == null) return null
+    return { home: m.homeShootout, away: m.awayShootout }
+  })
+
+  function lostBy(side: 'home' | 'away'): boolean {
+    const m = props.match
+    if (!m || m.status.code !== 'ft') return false
+    const mine = Number((side === 'home' ? m.homeScore : m.awayScore) ?? 0)
+    const theirs = Number((side === 'home' ? m.awayScore : m.homeScore) ?? 0)
+    if (mine !== theirs) return mine < theirs
+    const pens = shootout.value
+    if (!pens) return false
+    return side === 'home' ? pens.home < pens.away : pens.away < pens.home
+  }
+
+  const homeLost = computed(() => lostBy('home'))
+  const awayLost = computed(() => lostBy('away'))
+
+  // Cup ties against non-MLS clubs carry no league record, so the feed hands
+  // back the "–" placeholder — nothing worth giving a line to.
+  function realRecord(rec?: string): string | null {
+    return rec && /\d/.test(rec) ? rec : null
+  }
+
+  const homeRecord = computed(() => realRecord(props.match?.homeRec))
+  const awayRecord = computed(() => realRecord(props.match?.awayRec))
 
   // ── Rosters ───────────────────────────────────────────────────────────────────
   const homeRoster = computed(() => {
@@ -570,499 +642,588 @@
         aria-modal="true"
         @mousedown.self="emit('close')"
       >
-        <div class="modal-panel">
-          <!-- ── Header ──────────────────────────────────────────────────────── -->
-          <div class="modal-header">
-            <!-- Mobile game-card header (hidden on desktop) -->
-            <div class="header-mobile">
-              <!-- Venue info — above the scores -->
-              <div v-if="matchVenue" class="header-mobile-venue-row">
-                {{ matchVenue }}
-              </div>
-              <!-- Scores + clock layout: left=teams+scores, right=clock/status+date -->
-              <div class="header-mobile-scores-clock">
-                <!-- Left: stacked team rows -->
-                <div class="header-mobile-teams">
-                  <!-- Home team row -->
-                  <div class="header-mobile-team">
-                    <button
-                      class="header-logo-btn"
-                      @click.stop="emit('select-team', homeTeam)"
-                    >
-                      <img
-                        v-if="homeLogo"
-                        :src="homeLogo"
-                        :alt="homeTeam"
-                        class="header-mobile-logo"
-                      />
-                      <span
-                        v-else
-                        class="header-mobile-swatch"
-                        :style="{ background: match.homeColor }"
-                      />
-                    </button>
-                    <button
-                      class="header-mobile-name header-mobile-name-btn"
-                      @click.stop="emit('select-team', homeTeam)"
-                    >
-                      {{ homeAbbr }}
-                    </button>
-                    <ConferenceBadge :badge="homeBadge" />
-                    <span class="header-mobile-rec">{{ match.homeRec }}</span>
-                    <span class="header-mobile-spacer" />
-                    <span
-                      v-if="match.status.code !== 'ns'"
-                      class="header-mobile-score"
-                      :class="{
-                        'score-loser':
-                          match.status.code === 'ft' &&
-                          (match.homeScore ?? 0) < (match.awayScore ?? 0),
-                      }"
-                      >{{ match.homeScore ?? '0' }}</span
-                    >
-                  </div>
-                  <!-- Away team row -->
-                  <div class="header-mobile-team">
-                    <button
-                      class="header-logo-btn"
-                      @click.stop="emit('select-team', awayTeam)"
-                    >
-                      <img
-                        v-if="awayLogo"
-                        :src="awayLogo"
-                        :alt="awayTeam"
-                        class="header-mobile-logo"
-                      />
-                      <span
-                        v-else
-                        class="header-mobile-swatch"
-                        :style="{ background: match.awayColor }"
-                      />
-                    </button>
-                    <button
-                      class="header-mobile-name header-mobile-name-btn"
-                      @click.stop="emit('select-team', awayTeam)"
-                    >
-                      {{ awayAbbr }}
-                    </button>
-                    <ConferenceBadge :badge="awayBadge" />
-                    <span class="header-mobile-rec">{{ match.awayRec }}</span>
-                    <span class="header-mobile-spacer" />
-                    <span
-                      v-if="match.status.code !== 'ns'"
-                      class="header-mobile-score"
-                      :class="{
-                        'score-loser':
-                          match.status.code === 'ft' &&
-                          (match.awayScore ?? 0) < (match.homeScore ?? 0),
-                      }"
-                      >{{ match.awayScore ?? '0' }}</span
-                    >
-                  </div>
-                </div>
-                <!-- Right: clock/status badge + date -->
-                <div class="header-mobile-clock-block">
+        <div class="modal-shell">
+          <div class="modal-panel">
+            <!-- ── Header ──────────────────────────────────────────────────────── -->
+            <div class="modal-header">
+              <!-- Playoff stage banner — postseason matches only -->
+              <div v-if="roundInfo" class="header-stage">
+                <span class="header-stage-label">
                   <span
-                    v-if="match.status.code === 'ns'"
-                    class="header-mobile-kickoff"
-                    v-html="kickoffLabel"
+                    v-if="isLeaguesCup"
+                    class="stage-mark"
+                    aria-hidden="true"
                   />
-                  <span
-                    v-else-if="match.status.code === 'live'"
-                    class="badge badge-live header-mobile-badge header-mobile-badge-live"
-                    >{{ displayClock }}</span
-                  >
-                  <span
-                    v-else-if="match.status.code === 'ht'"
-                    class="badge badge-ht header-mobile-badge header-mobile-badge-compact"
-                    >HT</span
-                  >
-                  <span
-                    v-else
-                    class="badge badge-ft header-mobile-badge header-mobile-badge-compact"
-                    >FT</span
-                  >
-                  <span class="header-mobile-clock-date">{{
-                    matchMeta.split(' · ')[0]
-                  }}</span>
-                </div>
-              </div>
-              <!-- Meta info: date/time line -->
-              <div class="header-mobile-meta">
-                <span class="header-meta-line">{{ matchMeta }}</span>
-              </div>
-            </div>
-
-            <!-- Venue line — topmost, desktop only -->
-            <div
-              v-if="matchVenueAttendance"
-              class="header-venue-line header-venue-line-top"
-            >
-              {{ matchVenueAttendance }}
-            </div>
-
-            <!-- Desktop header (hidden on mobile) -->
-            <div class="header-row">
-              <!-- Home team: info (right-aligned) + logo -->
-              <div class="header-team header-team-home">
-                <div class="header-team-info header-team-info-home">
-                  <div class="header-team-name-line">
-                    <ConferenceBadge :badge="homeBadge" />
-                    <button
-                      class="header-team-name header-team-name-btn"
-                      @click.stop="emit('select-team', homeTeam)"
-                    >
-                      {{ homeTeam }}
-                    </button>
-                  </div>
-                  <span class="header-team-rec">{{ match.homeRec }}</span>
-                </div>
-
-                <button
-                  class="header-logo-btn"
-                  @click.stop="emit('select-team', homeTeam)"
+                  <span>{{ roundInfo.stage }}</span>
+                </span>
+                <span
+                  v-if="seriesNote"
+                  class="header-series-note"
+                  :class="{ 'header-series-decided': seriesDecided }"
+                  >{{ seriesNote }}</span
                 >
-                  <img
-                    v-if="homeLogo"
-                    :src="homeLogo"
-                    :alt="homeTeam"
-                    class="header-logo"
-                  />
-                  <span
-                    v-else
-                    class="header-swatch"
-                    :style="{ background: match.homeColor }"
-                  />
-                </button>
               </div>
 
-              <!-- Center: score + meta -->
-              <div class="header-score-block">
-                <div class="header-score-row">
-                  <span
-                    v-if="match.status.code !== 'ns'"
-                    class="header-score"
-                    :class="{
-                      'score-loser':
-                        match.status.code === 'ft' &&
-                        (match.homeScore ?? 0) < (match.awayScore ?? 0),
-                    }"
-                    >{{ match.homeScore ?? '0' }}</span
+              <!-- Mobile game-card header (hidden on desktop) -->
+              <div class="header-mobile">
+                <!-- Venue info — above the scores -->
+                <div v-if="matchVenue" class="header-mobile-venue-row">
+                  <button
+                    v-if="stadiumInfo"
+                    class="venue-link"
+                    @click.stop="openStadiumModal"
                   >
-                  <span class="header-sep">
-                    <span v-if="match.status.code === 'ns'" class="header-vs"
-                      >VS</span
-                    >
+                    {{ matchVenue }}
+                  </button>
+                  <template v-else>{{ matchVenue }}</template>
+                </div>
+
+                <!-- Scores + clock layout: left=teams+scores, right=clock/status+date -->
+                <div class="header-mobile-scores-clock">
+                  <!-- Left: stacked team rows -->
+                  <div class="header-mobile-teams">
+                    <!-- Home team row -->
+                    <div class="header-mobile-team">
+                      <button
+                        class="header-logo-btn"
+                        @click.stop="emit('select-team', homeTeam)"
+                      >
+                        <img
+                          v-if="homeLogo"
+                          :src="homeLogo"
+                          :alt="homeTeam"
+                          class="header-mobile-logo"
+                        />
+                        <span
+                          v-else
+                          class="header-mobile-swatch"
+                          :style="{ background: match.homeColor }"
+                        />
+                      </button>
+                      <button
+                        class="header-mobile-name header-mobile-name-btn"
+                        @click.stop="emit('select-team', homeTeam)"
+                      >
+                        {{ homeAbbr }}
+                      </button>
+                      <ConferenceBadge :badge="homeBadge" />
+                      <span v-if="homeRecord" class="header-mobile-rec">{{
+                        homeRecord
+                      }}</span>
+                      <span class="header-mobile-spacer" />
+                      <span
+                        v-if="match.status.code !== 'ns'"
+                        class="header-mobile-score"
+                        :class="{
+                          'score-loser': homeLost && !isLeaguesCup,
+                          'score-even': isLeaguesCup,
+                        }"
+                        >{{ match.homeScore ?? '0'
+                        }}<span v-if="shootout" class="score-pens"
+                          >({{ shootout.home }})</span
+                        ></span
+                      >
+                    </div>
+                    <!-- Away team row -->
+                    <div class="header-mobile-team">
+                      <button
+                        class="header-logo-btn"
+                        @click.stop="emit('select-team', awayTeam)"
+                      >
+                        <img
+                          v-if="awayLogo"
+                          :src="awayLogo"
+                          :alt="awayTeam"
+                          class="header-mobile-logo"
+                        />
+                        <span
+                          v-else
+                          class="header-mobile-swatch"
+                          :style="{ background: match.awayColor }"
+                        />
+                      </button>
+                      <button
+                        class="header-mobile-name header-mobile-name-btn"
+                        @click.stop="emit('select-team', awayTeam)"
+                      >
+                        {{ awayAbbr }}
+                      </button>
+                      <ConferenceBadge :badge="awayBadge" />
+                      <span v-if="awayRecord" class="header-mobile-rec">{{
+                        awayRecord
+                      }}</span>
+                      <span class="header-mobile-spacer" />
+                      <span
+                        v-if="match.status.code !== 'ns'"
+                        class="header-mobile-score"
+                        :class="{
+                          'score-loser': awayLost && !isLeaguesCup,
+                          'score-even': isLeaguesCup,
+                        }"
+                        >{{ match.awayScore ?? '0'
+                        }}<span v-if="shootout" class="score-pens"
+                          >({{ shootout.away }})</span
+                        ></span
+                      >
+                    </div>
+                  </div>
+                  <!-- Right: clock/status badge + date -->
+                  <div class="header-mobile-clock-block">
+                    <span
+                      v-if="match.status.code === 'ns'"
+                      class="header-mobile-kickoff"
+                      v-html="kickoffLabel"
+                    />
                     <span
                       v-else-if="match.status.code === 'live'"
-                      class="badge badge-live"
-                      >{{ match.status.clock || 'LIVE' }}</span
+                      class="badge badge-live header-mobile-badge header-mobile-badge-live"
+                      >{{ displayClock }}</span
                     >
                     <span
                       v-else-if="match.status.code === 'ht'"
-                      class="badge badge-ht"
+                      class="badge badge-ht header-mobile-badge header-mobile-badge-compact"
                       >HT</span
                     >
-                    <span v-else class="badge badge-ft">FT</span>
-                  </span>
-                  <span
-                    v-if="match.status.code !== 'ns'"
-                    class="header-score"
-                    :class="{
-                      'score-loser':
-                        match.status.code === 'ft' &&
-                        (match.awayScore ?? 0) < (match.homeScore ?? 0),
-                    }"
-                    >{{ match.awayScore ?? '0' }}</span
-                  >
+                    <span
+                      v-else
+                      class="badge badge-ft header-mobile-badge header-mobile-badge-compact"
+                      >FT</span
+                    >
+                    <span class="header-mobile-clock-date">{{
+                      matchMeta.split(' · ')[0]
+                    }}</span>
+                  </div>
                 </div>
-                <div class="header-meta">
+                <!-- Meta info: date/time line -->
+                <div class="header-mobile-meta">
                   <span class="header-meta-line">{{ matchMeta }}</span>
                 </div>
               </div>
 
-              <!-- Away team: logo + info (left-aligned) -->
-              <div class="header-team header-team-away">
-                <button
-                  class="header-logo-btn"
-                  @click.stop="emit('select-team', awayTeam)"
-                >
-                  <img
-                    v-if="awayLogo"
-                    :src="awayLogo"
-                    :alt="awayTeam"
-                    class="header-logo"
-                  />
-                  <span
-                    v-else
-                    class="header-swatch"
-                    :style="{ background: match.awayColor }"
-                  />
-                </button>
-                <div class="header-team-info header-team-info-away">
-                  <div class="header-team-name-line">
-                    <button
-                      class="header-team-name header-team-name-btn"
-                      @click.stop="emit('select-team', awayTeam)"
-                    >
-                      {{ awayTeam }}
-                    </button>
-                    <ConferenceBadge :badge="awayBadge" />
+              <!-- Desktop header (hidden on mobile) -->
+              <div class="header-row">
+                <!-- Home team: info (right-aligned) + logo -->
+                <div class="header-team header-team-home">
+                  <div class="header-team-info header-team-info-home">
+                    <div class="header-team-name-line">
+                      <ConferenceBadge :badge="homeBadge" />
+                      <button
+                        class="header-team-name header-team-name-btn"
+                        @click.stop="emit('select-team', homeTeam)"
+                      >
+                        {{ homeTeam }}
+                      </button>
+                    </div>
+                    <span v-if="homeRecord" class="header-team-rec">{{
+                      homeRecord
+                    }}</span>
                   </div>
-                  <span class="header-team-rec">{{ match.awayRec }}</span>
-                </div>
-              </div>
-            </div>
 
-            <!-- Scorers / cards row — desktop: two 50/50 columns; mobile: stacked -->
-            <div
-              v-if="detail?.matchEvents?.length && match.status.code !== 'ns'"
-              class="header-events-row"
-            >
-              <!-- Home team column -->
-              <div class="header-events-col header-events-col-home">
-                <!-- Goals line -->
-                <div class="events-goals-line">
-                  <!-- Mobile only: team label (shown once) -->
-                  <span class="events-team-label">{{ homeEventLabel }}:</span>
-
-                  <span
-                    v-if="!homeGroupedGoals.length && !homeGroupedCards.length"
-                    class="event-none"
-                    >—</span
+                  <button
+                    class="header-logo-btn"
+                    @click.stop="emit('select-team', homeTeam)"
                   >
-                  <span
-                    v-for="(ev, i) in homeGroupedGoals"
-                    :key="`hg-${i}`"
-                    class="event-goal-item"
-                  >
-                    <span class="event-icon">⚽</span>
-                    <span class="event-name">{{ ev.lastName }}</span>
-                    <span v-if="ev.isOG" class="event-og">OG</span>
-                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
-                    <span v-if="ev.isPenalty" class="event-pen">P</span>
-                  </span>
+                    <img
+                      v-if="homeLogo"
+                      :src="homeLogo"
+                      :alt="homeTeam"
+                      class="header-logo"
+                    />
+                    <span
+                      v-else
+                      class="header-swatch"
+                      :style="{ background: match.homeColor }"
+                    />
+                  </button>
                 </div>
-                <!-- Cards line -->
-                <div v-if="homeGroupedCards.length" class="events-cards-line">
-                  <span
-                    v-for="(ev, i) in homeGroupedCards"
-                    :key="`hc-${i}`"
-                    class="event-card-item"
-                  >
-                    <span v-if="ev.isSecondYellow" class="event-card-double">
+
+                <!-- Center: score + meta -->
+                <div class="header-score-block">
+                  <div class="header-score-row">
+                    <span
+                      v-if="match.status.code !== 'ns'"
+                      class="header-score header-score-home"
+                      :class="{
+                        'score-loser': homeLost && !isLeaguesCup,
+                        'score-even': isLeaguesCup,
+                      }"
+                      >{{ match.homeScore ?? '0'
+                      }}<span v-if="shootout" class="score-pens"
+                        >({{ shootout.home }})</span
+                      ></span
+                    >
+                    <span class="header-sep">
+                      <span v-if="match.status.code === 'ns'" class="header-vs"
+                        >VS</span
+                      >
                       <span
-                        class="event-card event-card-yellow event-card-double-back"
-                      />
+                        v-else-if="match.status.code === 'live'"
+                        class="badge badge-live"
+                        >{{ match.status.clock || 'LIVE' }}</span
+                      >
                       <span
-                        class="event-card event-card-red event-card-double-front"
-                      />
+                        v-else-if="match.status.code === 'ht'"
+                        class="badge badge-ht"
+                        >HT</span
+                      >
+                      <span v-else class="badge badge-ft">FT</span>
                     </span>
                     <span
-                      v-else-if="ev.type === 'yellow'"
-                      class="event-card event-card-yellow"
+                      v-if="match.status.code !== 'ns'"
+                      class="header-score header-score-away"
+                      :class="{
+                        'score-loser': awayLost && !isLeaguesCup,
+                        'score-even': isLeaguesCup,
+                      }"
+                      ><span v-if="shootout" class="score-pens"
+                        >({{ shootout.away }})</span
+                      >{{ match.awayScore ?? '0' }}</span
+                    >
+                  </div>
+                  <div class="header-meta">
+                    <span class="header-meta-line">{{ matchMeta }}</span>
+                  </div>
+                </div>
+
+                <!-- Away team: logo + info (left-aligned) -->
+                <div class="header-team header-team-away">
+                  <button
+                    class="header-logo-btn"
+                    @click.stop="emit('select-team', awayTeam)"
+                  >
+                    <img
+                      v-if="awayLogo"
+                      :src="awayLogo"
+                      :alt="awayTeam"
+                      class="header-logo"
                     />
-                    <span v-else class="event-card event-card-red" />
-                    <span class="event-name">{{ ev.lastName }}</span>
-                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
-                  </span>
-                </div>
-              </div>
-
-              <!-- Away team column -->
-
-              <div class="header-events-col header-events-col-away">
-                <!-- Goals line -->
-                <div class="events-goals-line">
-                  <!-- Mobile only: team label (shown once) -->
-                  <span class="events-team-label">{{ awayEventLabel }}:</span>
-
-                  <span
-                    v-if="!awayGroupedGoals.length && !awayGroupedCards.length"
-                    class="event-none"
-                    >—</span
-                  >
-                  <span
-                    v-for="(ev, i) in awayGroupedGoals"
-                    :key="`ag-${i}`"
-                    class="event-goal-item"
-                  >
-                    <span class="event-icon">⚽</span>
-                    <span class="event-name">{{ ev.lastName }}</span>
-                    <span v-if="ev.isOG" class="event-og">OG</span>
-                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
-                    <span v-if="ev.isPenalty" class="event-pen">P</span>
-                  </span>
-                </div>
-                <!-- Cards line -->
-                <div v-if="awayGroupedCards.length" class="events-cards-line">
-                  <span
-                    v-for="(ev, i) in awayGroupedCards"
-                    :key="`ac-${i}`"
-                    class="event-card-item"
-                  >
-                    <span v-if="ev.isSecondYellow" class="event-card-double">
-                      <span
-                        class="event-card event-card-yellow event-card-double-back"
-                      />
-                      <span
-                        class="event-card event-card-red event-card-double-front"
-                      />
-                    </span>
                     <span
-                      v-else-if="ev.type === 'yellow'"
-                      class="event-card event-card-yellow"
+                      v-else
+                      class="header-swatch"
+                      :style="{ background: match.awayColor }"
                     />
-                    <span v-else class="event-card event-card-red" />
-                    <span class="event-name">{{ ev.lastName }}</span>
-                    <span class="event-clock">{{ ev.clocks.join(', ') }}</span>
-                  </span>
+                  </button>
+                  <div class="header-team-info header-team-info-away">
+                    <div class="header-team-name-line">
+                      <button
+                        class="header-team-name header-team-name-btn"
+                        @click.stop="emit('select-team', awayTeam)"
+                      >
+                        {{ awayTeam }}
+                      </button>
+                      <ConferenceBadge :badge="awayBadge" />
+                    </div>
+                    <span v-if="awayRecord" class="header-team-rec">{{
+                      awayRecord
+                    }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Close button -->
+              <!-- Venue line — under the scoreline, desktop only -->
+              <div
+                v-if="matchVenueAttendance"
+                class="header-venue-line header-venue-line-top"
+              >
+                <button
+                  v-if="stadiumInfo"
+                  class="venue-link"
+                  @click.stop="openStadiumModal"
+                >
+                  {{ matchVenue }}
+                </button>
+                <template v-else>{{ matchVenue }}</template>
+                <template v-if="matchAttendance">
+                  - {{ matchAttendance }}</template
+                >
+              </div>
 
-            <button
-              class="modal-close"
-              aria-label="Close"
-              @click="emit('close')"
-            >
-              <CloseIcon />
-            </button>
-          </div>
+              <!-- Scorers / cards row — desktop: two 50/50 columns; mobile: stacked -->
+              <div
+                v-if="detail?.matchEvents?.length && match.status.code !== 'ns'"
+                class="header-events-row"
+              >
+                <!-- Home team column -->
+                <div class="header-events-col header-events-col-home">
+                  <!-- Goals line -->
+                  <div class="events-goals-line">
+                    <!-- Mobile only: team label (shown once) -->
+                    <span class="events-team-label">{{ homeEventLabel }}:</span>
 
-          <!-- ── Tabs ────────────────────────────────────────────────────────── -->
-          <div class="modal-tabs">
-            <button
-              v-if="match.status.code === 'ns'"
-              class="modal-tab"
-              :class="{ active: activeTab === 'preview' }"
-              @click="setTab('preview')"
-            >
-              Preview
-            </button>
-            <button
-              class="modal-tab"
-              :class="{ active: activeTab === 'overview' }"
-              @click="setTab('overview')"
-            >
-              Stats
-            </button>
-            <button
-              class="modal-tab"
-              :class="{ active: activeTab === 'leaders' }"
-              @click="setTab('leaders')"
-            >
-              Leaders
-            </button>
-            <button
-              class="modal-tab"
-              :class="{ active: activeTab === 'lineups' }"
-              @click="setTab('lineups')"
-            >
-              Lineups
-            </button>
-            <button
-              class="modal-tab"
-              :class="{ active: activeTab === 'h2h' }"
-              @click="setTab('h2h')"
-            >
-              <span class="tab-label-desktop">Head to Head</span>
-              <span class="tab-label-mobile">H2H</span>
-            </button>
-          </div>
+                    <span
+                      v-if="
+                        !homeGroupedGoals.length && !homeGroupedCards.length
+                      "
+                      class="event-none"
+                      >—</span
+                    >
+                    <span
+                      v-for="(ev, i) in homeGroupedGoals"
+                      :key="`hg-${i}`"
+                      class="event-goal-item"
+                    >
+                      <span class="event-icon">⚽</span>
+                      <span class="event-name">{{ ev.lastName }}</span>
+                      <span v-if="ev.isOG" class="event-og">OG</span>
+                      <span class="event-clock">{{
+                        ev.clocks.join(', ')
+                      }}</span>
+                      <span v-if="ev.isPenalty" class="event-pen">P</span>
+                    </span>
+                  </div>
+                  <!-- Cards line -->
+                  <div v-if="homeGroupedCards.length" class="events-cards-line">
+                    <span
+                      v-for="(ev, i) in homeGroupedCards"
+                      :key="`hc-${i}`"
+                      class="event-card-item"
+                    >
+                      <span v-if="ev.isSecondYellow" class="event-card-double">
+                        <span
+                          class="event-card event-card-yellow event-card-double-back"
+                        />
+                        <span
+                          class="event-card event-card-red event-card-double-front"
+                        />
+                      </span>
+                      <span
+                        v-else-if="ev.type === 'yellow'"
+                        class="event-card event-card-yellow"
+                      />
+                      <span v-else class="event-card event-card-red" />
+                      <span class="event-name">{{ ev.lastName }}</span>
+                      <span class="event-clock">{{
+                        ev.clocks.join(', ')
+                      }}</span>
+                    </span>
+                  </div>
+                </div>
 
-          <!-- ── Body ────────────────────────────────────────────────────────── -->
-          <div class="modal-body">
-            <!-- Loading skeleton -->
-            <div v-if="loading" class="skeleton-wrap">
-              <div v-for="i in 5" :key="i" class="skeleton-row" />
-            </div>
+                <!-- Away team column -->
 
-            <!-- Error -->
-            <div v-else-if="error" class="error-msg">⚠️ {{ error }}</div>
+                <div class="header-events-col header-events-col-away">
+                  <!-- Goals line -->
+                  <div class="events-goals-line">
+                    <!-- Mobile only: team label (shown once) -->
+                    <span class="events-team-label">{{ awayEventLabel }}:</span>
 
-            <!-- ── Tab content with slide transition ──────────────────────── -->
-            <Transition v-else :name="`tab-slide-${slideDir}`" mode="out-in">
-              <div :key="activeTab" class="tab-pane">
-                <!-- ── PREVIEW TAB ─────────────────────────────────────────── -->
-                <template v-if="activeTab === 'preview'">
-                  <GameDetailPreviewTab :preview="matchPreview" />
-                </template>
-
-                <!-- ── STATS TAB ───────────────────────────────────────────── -->
-                <template v-else-if="activeTab === 'overview' && detail">
-                  <GameDetailStatsTab
-                    :detail="detail"
-                    :home-logo="homeLogo"
-                    :away-logo="awayLogo"
-                    :home-team="homeTeam"
-                    :away-team="awayTeam"
-                    :home-abbr="homeAbbr"
-                    :away-abbr="awayAbbr"
-                    :home-team-abbrev="homeTeamAbbrev"
-                    :away-team-abbrev="awayTeamAbbrev"
-                  />
-                </template>
-
-                <!-- ── LEADERS TAB ─────────────────────────────────────────── -->
-                <template v-else-if="activeTab === 'leaders' && detail">
-                  <GameDetailLeadersTab
-                    :home-logo="homeLogo"
-                    :away-logo="awayLogo"
-                    :home-team="homeTeam"
-                    :away-team="awayTeam"
-                    :home-abbr="homeAbbr"
-                    :away-abbr="awayAbbr"
-                    :home-team-abbrev="homeTeamAbbrev"
-                    :away-team-abbrev="awayTeamAbbrev"
-                    :home-leaders="homeLeaders"
-                    :away-leaders="awayLeaders"
-                  />
-                </template>
-
-                <!-- ── LINEUPS TAB ─────────────────────────────────────────── -->
-                <template v-else-if="activeTab === 'lineups' && detail">
-                  <GameDetailLineupsTab
-                    :home-logo="homeLogo"
-                    :away-logo="awayLogo"
-                    :home-team="homeTeam"
-                    :away-team="awayTeam"
-                    :home-abbr="homeAbbr"
-                    :away-abbr="awayAbbr"
-                    :home-team-abbrev="homeTeamAbbrev"
-                    :away-team-abbrev="awayTeamAbbrev"
-                    :home-roster="homeRoster"
-                    :away-roster="awayRoster"
-                    :status-code="match.status.code"
-                  />
-                </template>
-
-                <!-- ── H2H TAB ─────────────────────────────────────────────── -->
-                <template v-else-if="activeTab === 'h2h'">
-                  <GameDetailH2hTab
-                    :h2h="h2h"
-                    :loading="loading"
-                    :home-team="homeTeam"
-                    :away-team="awayTeam"
-                    :home-abbr="homeAbbr"
-                    :away-abbr="awayAbbr"
-                    @select-team="emit('select-team', $event)"
-                  />
-                </template>
-
-                <!-- No detail yet -->
-                <div v-else-if="!loading && !detail" class="no-data">
-                  Loading match details…
+                    <span
+                      v-if="
+                        !awayGroupedGoals.length && !awayGroupedCards.length
+                      "
+                      class="event-none"
+                      >—</span
+                    >
+                    <span
+                      v-for="(ev, i) in awayGroupedGoals"
+                      :key="`ag-${i}`"
+                      class="event-goal-item"
+                    >
+                      <span class="event-icon">⚽</span>
+                      <span class="event-name">{{ ev.lastName }}</span>
+                      <span v-if="ev.isOG" class="event-og">OG</span>
+                      <span class="event-clock">{{
+                        ev.clocks.join(', ')
+                      }}</span>
+                      <span v-if="ev.isPenalty" class="event-pen">P</span>
+                    </span>
+                  </div>
+                  <!-- Cards line -->
+                  <div v-if="awayGroupedCards.length" class="events-cards-line">
+                    <span
+                      v-for="(ev, i) in awayGroupedCards"
+                      :key="`ac-${i}`"
+                      class="event-card-item"
+                    >
+                      <span v-if="ev.isSecondYellow" class="event-card-double">
+                        <span
+                          class="event-card event-card-yellow event-card-double-back"
+                        />
+                        <span
+                          class="event-card event-card-red event-card-double-front"
+                        />
+                      </span>
+                      <span
+                        v-else-if="ev.type === 'yellow'"
+                        class="event-card event-card-yellow"
+                      />
+                      <span v-else class="event-card event-card-red" />
+                      <span class="event-name">{{ ev.lastName }}</span>
+                      <span class="event-clock">{{
+                        ev.clocks.join(', ')
+                      }}</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-            </Transition>
+
+              <!-- Close button -->
+
+              <button
+                class="modal-close"
+                aria-label="Close"
+                @click="emit('close')"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <!-- ── Tabs ────────────────────────────────────────────────────────── -->
+            <div class="modal-tabs">
+              <button
+                v-if="match.status.code === 'ns'"
+                class="modal-tab"
+                :class="{ active: activeTab === 'preview' }"
+                @click="setTab('preview')"
+              >
+                Preview
+              </button>
+              <button
+                class="modal-tab"
+                :class="{ active: activeTab === 'overview' }"
+                @click="setTab('overview')"
+              >
+                Stats
+              </button>
+              <button
+                class="modal-tab"
+                :class="{ active: activeTab === 'leaders' }"
+                @click="setTab('leaders')"
+              >
+                Leaders
+              </button>
+              <button
+                class="modal-tab"
+                :class="{ active: activeTab === 'lineups' }"
+                @click="setTab('lineups')"
+              >
+                Lineups
+              </button>
+              <button
+                class="modal-tab"
+                :class="{ active: activeTab === 'h2h' }"
+                @click="setTab('h2h')"
+              >
+                <span class="tab-label-desktop">Head to Head</span>
+                <span class="tab-label-mobile">H2H</span>
+              </button>
+            </div>
+
+            <!-- ── Body ────────────────────────────────────────────────────────── -->
+            <div class="modal-body">
+              <!-- Loading skeleton -->
+              <div v-if="loading" class="skeleton-wrap">
+                <div v-for="i in 5" :key="i" class="skeleton-row" />
+              </div>
+
+              <!-- Error -->
+              <div v-else-if="error" class="error-msg">⚠️ {{ error }}</div>
+
+              <!-- ── Tab content with slide transition ──────────────────────── -->
+              <Transition v-else :name="`tab-slide-${slideDir}`" mode="out-in">
+                <div :key="activeTab" class="tab-pane">
+                  <!-- ── PREVIEW TAB ─────────────────────────────────────────── -->
+                  <template v-if="activeTab === 'preview'">
+                    <GameDetailPreviewTab :preview="matchPreview" />
+                  </template>
+
+                  <!-- ── STATS TAB ───────────────────────────────────────────── -->
+                  <template v-else-if="activeTab === 'overview' && detail">
+                    <GameDetailStatsTab
+                      :detail="detail"
+                      :home-logo="homeLogo"
+                      :away-logo="awayLogo"
+                      :home-team="homeTeam"
+                      :away-team="awayTeam"
+                      :home-abbr="homeAbbr"
+                      :away-abbr="awayAbbr"
+                      :home-team-abbrev="homeTeamAbbrev"
+                      :away-team-abbrev="awayTeamAbbrev"
+                    />
+                  </template>
+
+                  <!-- ── LEADERS TAB ─────────────────────────────────────────── -->
+                  <template v-else-if="activeTab === 'leaders' && detail">
+                    <GameDetailLeadersTab
+                      :home-logo="homeLogo"
+                      :away-logo="awayLogo"
+                      :home-team="homeTeam"
+                      :away-team="awayTeam"
+                      :home-abbr="homeAbbr"
+                      :away-abbr="awayAbbr"
+                      :home-team-abbrev="homeTeamAbbrev"
+                      :away-team-abbrev="awayTeamAbbrev"
+                      :home-leaders="homeLeaders"
+                      :away-leaders="awayLeaders"
+                    />
+                  </template>
+
+                  <!-- ── LINEUPS TAB ─────────────────────────────────────────── -->
+                  <template v-else-if="activeTab === 'lineups' && detail">
+                    <GameDetailLineupsTab
+                      :home-logo="homeLogo"
+                      :away-logo="awayLogo"
+                      :home-team="homeTeam"
+                      :away-team="awayTeam"
+                      :home-abbr="homeAbbr"
+                      :away-abbr="awayAbbr"
+                      :home-team-abbrev="homeTeamAbbrev"
+                      :away-team-abbrev="awayTeamAbbrev"
+                      :home-roster="homeRoster"
+                      :away-roster="awayRoster"
+                      :status-code="match.status.code"
+                    />
+                  </template>
+
+                  <!-- ── H2H TAB ─────────────────────────────────────────────── -->
+                  <template v-else-if="activeTab === 'h2h'">
+                    <GameDetailH2hTab
+                      :h2h="h2h"
+                      :loading="loading"
+                      :home-team="homeTeam"
+                      :away-team="awayTeam"
+                      :home-abbr="homeAbbr"
+                      :away-abbr="awayAbbr"
+                      @select-team="emit('select-team', $event)"
+                    />
+                  </template>
+
+                  <!-- No detail yet -->
+                  <div v-else-if="!loading && !detail" class="no-data">
+                    Loading match details…
+                  </div>
+                </div>
+              </Transition>
+            </div>
           </div>
+
+          <!-- Match badge — top-right corner, mirrors GameBlock's wall badge.
+             Rendered as a sibling of .modal-panel (not a descendant) so it
+             sits right on the panel's corner without being clipped by the
+             panel's own overflow: hidden. -->
+          <MatchBadgeIcon
+            v-if="isLeaguesCup"
+            :badge="leaguesCupBadge"
+            size="0.95rem"
+            tooltip-side="below"
+            class="modal-badge"
+          />
+          <MatchBadgeIcon
+            v-else-if="match.badge"
+            :badge="match.badge"
+            tooltip-side="below"
+            class="modal-badge"
+          />
         </div>
       </div>
     </Transition>
   </Teleport>
+
+  <GameDetailStadiumModal
+    :open="showStadiumModal"
+    :stadium="stadiumInfo"
+    @close="showStadiumModal = false"
+  />
 </template>
 
 <style scoped>
@@ -1079,8 +1240,17 @@
     overflow-y: auto;
   }
 
-  .modal-panel {
+  /* Wraps .modal-panel so the fire/wild/LC badge can be positioned as a
+     sibling, hanging off the panel's corner (like GameBlock's wall badge)
+     without being clipped by the panel's own overflow: hidden. */
+  .modal-shell {
+    position: relative;
     margin-top: 1rem;
+    width: 100%;
+    max-width: 44rem;
+  }
+
+  .modal-panel {
     font-family: var(--font-condensed);
     font-weight: 100;
     letter-spacing: 0.03rem;
@@ -1089,7 +1259,6 @@
     border-bottom: 3px solid oklab(100% 0 0 / 0.08);
     border-radius: 0.75rem;
     width: 100%;
-    max-width: 44rem;
     max-height: 88dvh;
     display: flex;
     flex-direction: column;
@@ -1207,13 +1376,15 @@
   }
 
   .header-mobile-score {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     font-size: 1.375rem;
     font-weight: 600;
     color: oklab(100% 0 0);
     letter-spacing: 0.01em;
     line-height: 1.4;
     min-width: 1.25ch;
-    text-align: right;
     flex-shrink: 0;
     align-self: center;
   }
@@ -1222,6 +1393,34 @@
   .score-loser {
     color: oklab(0.63 0 0);
     font-weight: 300;
+  }
+
+  /* Leagues Cup ties are settled on the night — no aggregate, no second leg —
+     so both scorelines carry equal weight instead of dimming the loser. */
+  .score-even,
+  .header-score.score-even {
+    color: oklab(94% 0 0);
+    font-weight: 500;
+  }
+
+  /* Penalty shootout tally, a thin space away from the score */
+  .score-pens {
+    font-size: 1.25rem;
+    font-weight: inherit;
+    color: inherit;
+    letter-spacing: 0;
+    margin-left: 0.22em;
+  }
+
+  /* Held to the same ratio against the smaller mobile scoreline */
+  .header-mobile-score .score-pens {
+    font-size: 0.9375rem;
+  }
+
+  /* The away half is mirrored so both tallies hug the centre axis */
+  .header-score-away .score-pens {
+    margin-left: 0;
+    margin-right: 0.22em;
   }
 
   .header-mobile-meta {
@@ -1330,6 +1529,27 @@
     color: oklab(100% 0 0 / 0.75);
     letter-spacing: 0.04em;
     width: 100%;
+  }
+
+  /* Venue name as clickable button — reset button chrome, underline affordance */
+  .venue-link {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    transition: opacity 0.15s;
+  }
+
+  .venue-link:hover {
+    opacity: 0.75;
   }
 
   /* ── Header ───────────────────────────────────────────────────────────────── */
@@ -1491,14 +1711,28 @@
     gap: 0.5rem;
   }
 
+  /* Equal-basis halves keep the status badge pinned to the centre axis even
+     though the winning score is heavier (and wider) than the losing one.
+     Flex (rather than text-align) so the smaller shootout tally centres on the
+     score's midline instead of sitting on its baseline. */
   .header-score {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
     font-size: 1.875rem;
     font-weight: 600;
     color: oklab(100% 0 0);
     line-height: 1;
     min-width: 1.25ch;
-    text-align: center;
     letter-spacing: 0.01em;
+  }
+
+  .header-score-home {
+    justify-content: flex-end;
+  }
+
+  .header-score-away {
+    justify-content: flex-start;
   }
 
   .header-score.score-loser {
@@ -1534,9 +1768,10 @@
     text-align: center;
     letter-spacing: 0.02em;
     line-height: 1.35;
+    margin-top: 0.3rem;
   }
 
-  /* Venue line — topmost position (before header-row), desktop only */
+  /* Venue line — sits under the scoreline row, desktop only */
   .header-venue-line-top {
     font-size: 0.8rem;
     font-weight: 400;
@@ -1545,12 +1780,74 @@
     letter-spacing: 0.05em;
     line-height: 1.35;
     width: 100%;
+    margin-top: 0.4rem;
     margin-bottom: 0.4rem;
   }
 
   @media (max-width: 599px) {
     .header-venue-line-top {
       display: none;
+    }
+  }
+
+  /* Playoff stage banner — first element in the header, shown at all widths */
+  .header-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .header-stage-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: oklab(100% 0 0 / 0.6);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  /* The Leagues Cup mark is painted via mask so it inherits the label colour
+     the same way currentColor would on an inline SVG. */
+  .stage-mark {
+    width: 0.95em;
+    height: 0.98em;
+    flex-shrink: 0;
+    background: currentColor;
+    mask: url('/Leagues-cup-symbol.svg') no-repeat center / contain;
+    -webkit-mask: url('/Leagues-cup-symbol.svg') no-repeat center / contain;
+  }
+
+  .header-series-note {
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: oklab(100% 0 0 / 0.75);
+    background: oklab(100% 0 0 / 0.1);
+    border-radius: 0.2rem;
+    padding: 0.1rem 0.4rem;
+    text-align: center;
+  }
+
+  .header-series-decided {
+    color: oklab(20% 0.02 0.03);
+    background: oklab(84% 0.03 0.14);
+    font-weight: 600;
+  }
+
+  @media (max-width: 599px) {
+    .header-stage-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.16em;
+    }
+    .header-series-note {
+      font-size: 0.68rem;
     }
   }
 
@@ -1753,11 +2050,25 @@
     color: #ffffff;
   }
 
+  /* Fire/wild/LC badge — hangs off the panel's top-right corner, same mark
+     and offsets as GameBlock's wall-card badge. Rendered as a sibling of
+     .modal-panel (see template) so this negative-offset overflow isn't
+     clipped by the panel's own overflow: hidden. Combined-selector
+     out-specificities MatchBadgeIcon's own position:relative on the same
+     fallthrough root element. */
+  .modal-badge.match-badge-tooltip {
+    position: absolute;
+    top: -0.4rem;
+    right: -0.2rem;
+    line-height: 1;
+    z-index: 9050;
+  }
+
   /* Close button — plain X in top-right corner, no circle */
   .modal-close {
     position: absolute;
-    top: 0.35rem;
-    right: 0.35rem;
+    top: 0.75rem;
+    right: 0.75rem;
     background: transparent;
     border: none;
     color: oklab(100% 0 0 / 0.3);

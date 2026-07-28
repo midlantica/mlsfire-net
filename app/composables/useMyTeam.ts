@@ -49,11 +49,17 @@ export const TEAM_LOGO: Record<string, string> = {
   'St. Louis CITY SC': '/MLS-logos/St-Louis-City.svg',
   'Toronto FC': '/MLS-logos/Toronto-FC.svg',
   'Vancouver Whitecaps': '/MLS-logos/Vancouver-Whitecaps.svg',
+  'MLS All-Stars': '/all-star/mls-all-stars.svg',
+  'Liga MX All-Stars': '/all-star/liga-mx-all-stars.svg',
 }
+
+// All-Star squads are not selectable clubs — they only need logo artwork.
+export const ALL_STAR_TEAMS = ['MLS All-Stars', 'Liga MX All-Stars']
 
 // ── Sorted team list for the picker ──────────────────────────────────────────
 export const TEAM_LIST = Object.keys(TEAM_LOGO)
   .filter((k) => k !== 'St. Louis CITY SC') // dedupe
+  .filter((k) => !ALL_STAR_TEAMS.includes(k))
   .sort()
 
 // ── Conference map ────────────────────────────────────────────────────────────
