@@ -1592,7 +1592,8 @@
     width: 100%;
   }
 
-  /* Venue name as clickable button — reset button chrome, underline affordance */
+  /* Venue name as clickable button — reset button chrome, no underline.
+     Starts dim (inherited), brightens to solid white on hover to read as a link. */
   .venue-link {
     font-family: inherit;
     font-size: inherit;
@@ -1604,13 +1605,12 @@
     padding: 0;
     margin: 0;
     cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-    transition: opacity 0.15s;
+    text-decoration: none;
+    transition: color 0.15s;
   }
 
   .venue-link:hover {
-    opacity: 0.75;
+    color: oklab(100% 0 0);
   }
 
   /* ── Header ───────────────────────────────────────────────────────────────── */
