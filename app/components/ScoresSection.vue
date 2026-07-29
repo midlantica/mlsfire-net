@@ -274,6 +274,7 @@
               :key="m.id"
               :match="m"
               :hide-conference-badge="activeTab === 'last'"
+              conference-tooltip-side="right"
               @open-game-detail="emit('open-game-detail', $event)"
             />
           </div>

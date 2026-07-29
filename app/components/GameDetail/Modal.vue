@@ -953,7 +953,7 @@
                       >
                         {{ awayTeam }}
                       </component>
-                      <ConferenceBadge :badge="awayBadge" />
+                      <ConferenceBadge :badge="awayBadge" align="end" />
                     </div>
                     <span v-if="awayRecord" class="header-team-rec">{{
                       awayRecord
@@ -1611,7 +1611,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0.6rem 0.7rem 0.625rem;
+    padding: 1.2rem 0.7rem 0.325rem;
   }
 
   @media (max-width: 599px) {

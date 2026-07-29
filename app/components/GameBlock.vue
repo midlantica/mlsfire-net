@@ -14,6 +14,7 @@
     match: Match
     showDate?: boolean // show full date instead of just time (Week's Best)
     hideConferenceBadge?: boolean
+    conferenceTooltipSide?: 'bottom' | 'right'
   }>()
 
   const emit = defineEmits<{
@@ -265,7 +266,12 @@
           />
         </span>
         <span class="team-name-text">{{ homeDisplayName }}</span>
-        <ConferenceBadge v-if="!hideConferenceBadge" :badge="homeBadge" />
+        <ConferenceBadge
+          v-if="!hideConferenceBadge"
+          :badge="homeBadge"
+          :tooltip-side="conferenceTooltipSide"
+        />
+
         <span v-if="match.homeRec && !isLeaguesCup" class="team-rec">{{
           match.homeRec
         }}</span>
@@ -303,7 +309,12 @@
           />
         </span>
         <span class="team-name-text">{{ awayDisplayName }}</span>
-        <ConferenceBadge v-if="!hideConferenceBadge" :badge="awayBadge" />
+        <ConferenceBadge
+          v-if="!hideConferenceBadge"
+          :badge="awayBadge"
+          :tooltip-side="conferenceTooltipSide"
+        />
+
         <span v-if="match.awayRec && !isLeaguesCup" class="team-rec">{{
           match.awayRec
         }}</span>

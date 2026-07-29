@@ -48,6 +48,7 @@
             v-for="match in pastMatches"
             :key="match.id"
             :match="match"
+            hide-conference-badge
             @open-game-detail="emit('open-game-detail', $event)"
           />
         </div>
