@@ -2113,8 +2113,9 @@
   /* Close button — plain X in top-right corner, no circle */
   .modal-close {
     position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
+    top: 0.4rem;
+    right: 0.4rem;
+
     background: transparent;
     border: none;
     color: oklab(100% 0 0 / 0.3);

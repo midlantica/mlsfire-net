@@ -94,10 +94,10 @@
 
   .conf-tip {
     position: absolute;
-    top: calc(100% + 7px);
+    top: calc(100% + 8px);
     left: 0;
     padding: 0.2rem 0.45rem 0.25rem;
-    border-radius: 5px;
+    border-radius: 3.5px;
 
     background: oklch(0.44 0.14 242);
     color: oklch(99% 0.01 150);
@@ -122,32 +122,33 @@
      keeps the text clear of the cursor. */
   .conf-tip-right {
     top: 50%;
-    left: calc(100% + 7px);
+    left: calc(100% + 8px);
     transform: translateY(-50%);
   }
 
-  /* Arrow — anchored to the badge itself (not the tooltip box), so it always
-     points straight up at the badge regardless of which direction the
-     tooltip flows. */
+  /* Arrow — a small square rotated into a diamond, anchored at the exact
+     point where the tooltip box begins. Sitting behind the tooltip
+     (lower z-index) with matching background color, half of it hides
+     seamlessly under the tooltip while the other half pokes out into the
+     gap toward the badge, guaranteeing a visible connecting point (unlike
+     the old border-triangle trick, which could render as nothing depending
+     on gap/border-width alignment). */
   .conf-tip-arrow {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 8px);
     left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border: 5px solid transparent;
-    border-bottom-color: oklch(0.44 0.14 242);
-    z-index: 41;
+    width: 6px;
+    height: 6px;
+
+    transform: translate(-50%, -50%) rotate(45deg);
+    background: oklch(0.44 0.14 242);
+    z-index: 39;
   }
 
   .conf-tip-arrow-right {
     top: 50%;
-    left: 100%;
-    transform: translate(0, -50%);
-    border: 5px solid transparent;
-    border-bottom-color: transparent;
-    border-right-color: oklch(0.44 0.14 242);
+    left: calc(100% + 8px);
+    transform: translate(-50%, -50%) rotate(45deg);
   }
 
   .conf-badge-wrap-ligamx .conf-tip {
@@ -155,12 +156,7 @@
   }
 
   .conf-badge-wrap-ligamx .conf-tip-arrow {
-    border-bottom-color: oklch(0.55 0.19 146);
-  }
-
-  .conf-badge-wrap-ligamx .conf-tip-arrow-right {
-    border-bottom-color: transparent;
-    border-right-color: oklch(0.55 0.19 146);
+    background: oklch(0.55 0.19 146);
   }
 
   @media (max-width: 768px) {
