@@ -405,6 +405,21 @@
     () => TEAM_SHORT_NAME[awayTeam.value] ?? awayTeam.value
   )
 
+  // Desktop header shows the full team name, but very long ones (22+ chars)
+  // wrap onto two lines in that column — fall back to the abbreviation above
+  // that threshold, same cutoff GameBlock.vue uses for its wall cards.
+  const HEADER_NAME_LENGTH_THRESHOLD = 18
+  const homeHeaderName = computed(() =>
+    homeTeam.value.length > HEADER_NAME_LENGTH_THRESHOLD
+      ? homeAbbr.value
+      : homeTeam.value
+  )
+  const awayHeaderName = computed(() =>
+    awayTeam.value.length > HEADER_NAME_LENGTH_THRESHOLD
+      ? awayAbbr.value
+      : awayTeam.value
+  )
+
   // ── Plain city names for the mobile events-row team label ────────────────
   const TEAM_CITY_NAME: Record<string, string> = {
     'Atlanta United FC': 'Atlanta',
@@ -845,7 +860,7 @@
                           !homeIsLigaMx && emit('select-team', homeTeam)
                         "
                       >
-                        {{ homeTeam }}
+                        {{ homeHeaderName }}
                       </component>
                     </div>
                     <span v-if="homeRecord" class="header-team-rec">{{
@@ -951,7 +966,7 @@
                           !awayIsLigaMx && emit('select-team', awayTeam)
                         "
                       >
-                        {{ awayTeam }}
+                        {{ awayHeaderName }}
                       </component>
                       <ConferenceBadge :badge="awayBadge" align="end" />
                     </div>

@@ -45,7 +45,7 @@
     {
       key: 'mls-cup',
       label: 'Conference Finals & MLS Cup',
-      blurb: 'Nov–Dec 2025 · conference finals, then the gold MLS CUP chip',
+      blurb: 'Nov-Dec 2025 · conference finals, then the gold MLS CUP chip',
       league: 'usa.1',
       from: '20251117',
       to: '20251215',
@@ -55,7 +55,7 @@
       key: 'leagues-cup-phase',
       label: 'Leagues Cup — League Phase',
       blurb:
-        'Jul–Aug 2025 · MLS vs Liga MX, the 54-game Swiss-style league phase',
+        'Jul-Aug 2025 · MLS vs Liga MX, the 54-game Swiss-style league phase',
       league: 'concacaf.leagues.cup',
       from: '20250729',
       to: '20250831',
@@ -65,7 +65,7 @@
       key: 'mixed-overlap',
       label: 'MLS + Leagues Cup (overlap)',
       blurb:
-        'Aug–Sep 2025 · both competitions on one wall — MLS resumes Aug 9 while the cup knockouts run',
+        'Aug-Sep 2025 · both competitions on one wall — MLS resumes Aug 9 while the cup knockouts run',
       league: 'both',
       from: '20250804',
       to: '20250907',
@@ -74,7 +74,7 @@
     {
       key: 'leagues-cup-ko',
       label: 'Leagues Cup — Knockouts',
-      blurb: 'Aug–Sep 2025 · quarters, semis, third place, final',
+      blurb: 'Aug-Sep 2025 · quarters, semis, third place, final',
       league: 'concacaf.leagues.cup',
       from: '20250815',
       to: '20250907',
@@ -195,7 +195,7 @@
     const build = (offset: number) => {
       const start = shiftKey(base, offset)
       const end = shiftKey(start, 6)
-      return { start, end, label: `${prettyKey(start)} – ${prettyKey(end)}` }
+      return { start, end, label: `${prettyKey(start)} - ${prettyKey(end)}` }
     }
     return { last: build(-7), this: build(0), next: build(7) }
   })
@@ -323,6 +323,9 @@
     (route.query.club as string) ?? TEAM_LIST[0] ?? ''
   )
   const clubOpen = ref(Boolean(route.query.club))
+
+  // ── Leagues Cup info modal ─────────────────────────────────────────────────
+  const leaguesCupInfoOpen = ref(false)
 </script>
 
 <template>
@@ -437,12 +440,16 @@
         class="day-section"
         :class="{ 'lc-day': isLeaguesCupDay(day.matches) }"
       >
-        <img
-          v-if="isLeaguesCupDay(day.matches)"
-          src="/leagues-cup-logo.svg"
-          alt="Leagues Cup"
-          class="lc-logo"
-        />
+        <div v-if="isLeaguesCupDay(day.matches)" class="lc-logo-row">
+          <img src="/leagues-cup-logo.svg" alt="Leagues Cup" class="lc-logo" />
+          <button
+            class="lc-info-btn"
+            aria-label="About Leagues Cup"
+            @click="leaguesCupInfoOpen = true"
+          >
+            <img src="/info-rounded-w.svg" alt="" class="lc-info-icon" />
+          </button>
+        </div>
         <h2 class="day-heading">{{ day.label }}, {{ day.shortDate }}</h2>
 
         <div
@@ -453,7 +460,11 @@
           <h3 class="slot-heading" v-html="slot" />
           <div class="cards-grid">
             <div v-for="m in slotMatches" :key="m.id" class="card-wrap">
-              <GameBlock :match="m" @open-game-detail="openGameDetail" />
+              <GameBlock
+                :match="m"
+                conference-tooltip-side="right"
+                @open-game-detail="openGameDetail"
+              />
               <code v-if="showDebug" class="debug">
                 {{ m.seasonSlug ?? 'no-slug' }} · {{ m.seriesNote ?? '—' }}
               </code>
@@ -483,6 +494,7 @@
             <GameBlock
               :match="m"
               show-date
+              conference-tooltip-side="right"
               @open-game-detail="openGameDetail"
             />
             <code v-if="showDebug" class="debug">
@@ -505,6 +517,10 @@
         @close="clubOpen = false"
         @select-team="clubTeam = $event"
         @open-game-detail="openGameDetail"
+      />
+      <LeaguesCupInfoModal
+        :open="leaguesCupInfoOpen"
+        @close="leaguesCupInfoOpen = false"
       />
     </ClientOnly>
   </main>
@@ -697,11 +713,40 @@
     padding: 1rem;
   }
 
+  .lc-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
   .lc-logo {
     display: block;
     height: 1.75rem;
     width: auto;
-    margin-bottom: 0.75rem;
+  }
+
+  .lc-info-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  .lc-info-icon {
+    width: 100%;
+    height: 100%;
+    opacity: 0.9;
+    transition: opacity 0.15s;
+  }
+
+  .lc-info-btn:hover .lc-info-icon {
+    opacity: 1;
   }
 
   .day-section.lc-day .day-heading {

@@ -29,7 +29,11 @@
     )
   }
 
+  // ── Leagues Cup info modal ────────────────────────────────────────────────
+  const leaguesCupInfoOpen = ref(false)
+
   // ── Collapse state ────────────────────────────────────────────────────────
+
   // Track open/closed state for each day and each time slot.
   // Keys: day key (e.g. "2026-05-13") and slot label (e.g. "6:30PM").
   // Past days are auto-collapsed. Time slots stay open unless the user
@@ -225,14 +229,19 @@
       class="day-section"
       :class="{ 'lc-day': isLeaguesCupDay(day.matches) }"
     >
-      <img
-        v-if="isLeaguesCupDay(day.matches)"
-        src="/leagues-cup-logo.svg"
-        alt="Leagues Cup"
-        class="lc-logo"
-      />
+      <div v-if="isLeaguesCupDay(day.matches)" class="lc-logo-row">
+        <img src="/leagues-cup-logo.svg" alt="Leagues Cup" class="lc-logo" />
+        <button
+          class="lc-info-btn"
+          aria-label="About Leagues Cup"
+          @click="leaguesCupInfoOpen = true"
+        >
+          <img src="/info-rounded-w.svg" alt="" class="lc-info-icon" />
+        </button>
+      </div>
 
       <!-- Day heading (collapsible) -->
+
       <button
         class="day-heading"
         :class="{ collapsed: collapsedDays.has(day.key) }"
@@ -282,6 +291,13 @@
       </template>
     </section>
   </div>
+
+  <ClientOnly>
+    <LeaguesCupInfoModal
+      :open="leaguesCupInfoOpen"
+      @close="leaguesCupInfoOpen = false"
+    />
+  </ClientOnly>
 </template>
 
 <style scoped>
@@ -375,10 +391,39 @@
     padding: 1rem;
   }
 
+  .lc-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: flex-start;
+  }
+
   .lc-logo {
     height: 1.75rem;
     width: auto;
-    align-self: flex-start;
+  }
+
+  .lc-info-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  .lc-info-icon {
+    width: 100%;
+    height: 100%;
+    opacity: 0.9;
+    transition: opacity 0.15s;
+  }
+
+  .lc-info-btn:hover .lc-info-icon {
+    opacity: 1;
   }
 
   .day-section.lc-day .day-heading {

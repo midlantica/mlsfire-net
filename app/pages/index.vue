@@ -217,23 +217,10 @@
     history.replaceState(history.state, '', closePath)
   }
 
-  async function goToStandings(conferenceName: string) {
+  async function goToStandings(_conferenceName: string) {
     teamModalOpen.value = false
     viewTeam.value = null
     await switchMainTab('standings')
-    await nextTick()
-    const headings = document.querySelectorAll('.conf-title')
-    for (const el of headings) {
-      if (
-        el.textContent
-          ?.trim()
-          .toLowerCase()
-          .includes(conferenceName.toLowerCase().split(' ')[0] ?? '')
-      ) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        break
-      }
-    }
   }
 
   // ── Apply tab (load data if needed) ──────────────────────────────────────────

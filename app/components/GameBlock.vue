@@ -602,7 +602,7 @@
     gap: 0.075rem;
     padding-left: 0.5rem;
     border-left: 1px solid oklab(100% 0 0 / 0.07);
-    width: 4.5rem;
+    width: 4rem;
     flex-shrink: 0;
     text-align: center;
     position: relative;
