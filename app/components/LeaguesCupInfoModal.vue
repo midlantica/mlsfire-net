@@ -153,13 +153,13 @@
   .lc-info-logo {
     height: 2.25rem;
     width: auto;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .lc-info-body {
     width: 100%;
     font-size: var(--modal-copy-size, 1rem);
-    font-weight: 200;
+    font-weight: 100;
     line-height: 1.55;
     color: oklab(100% 0 0);
   }
@@ -197,11 +197,11 @@
 
   .lc-info-heading {
     margin: 0 0 0.5rem;
-    font-weight: 700;
+    font-weight: 500;
     color: oklab(100% 0 0);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.9em;
+    letter-spacing: 0.1em;
+    font-size: 1em;
   }
 
   .lc-info-body ul:last-child,
