@@ -16,6 +16,7 @@
   import { useConferenceBadges } from '~/composables/useStandings'
   import { slugFromSeasonTypeName } from '~/constants/rounds'
   import { LIGAMX_LOGO } from '~/constants/ligamx'
+  import { getStadiumInfo } from '~/constants/venues'
 
   const props = defineProps<{
     open: boolean
@@ -663,6 +664,14 @@
   const displayBadge = computed(() =>
     displayTeam.value ? badgeByTeam.value[displayTeam.value] : undefined
   )
+
+  // ── Stadium detail modal ─────────────────────────────────────────────────
+  const showStadiumModal = ref(false)
+  const stadiumInfo = computed(() => getStadiumInfo(venue.value))
+
+  function openStadiumModal() {
+    if (stadiumInfo.value) showStadiumModal.value = true
+  }
 </script>
 
 <template>
@@ -701,7 +710,15 @@
                 </span>
                 <ConferenceBadge :badge="displayBadge" />
               </div>
-              <div class="modal-venue">
+              <button
+                v-if="stadiumInfo"
+                class="modal-venue venue-link"
+                @click="openStadiumModal"
+              >
+                <span class="venue-full">{{ venue }}</span>
+                <span class="venue-short">{{ venueShort }}</span>
+              </button>
+              <div v-else class="modal-venue">
                 <span class="venue-full">{{ venue }}</span>
                 <span class="venue-short">{{ venueShort }}</span>
               </div>
@@ -802,6 +819,12 @@
       </div>
     </Transition>
   </Teleport>
+
+  <GameDetailStadiumModal
+    :open="showStadiumModal"
+    :stadium="stadiumInfo"
+    @close="showStadiumModal = false"
+  />
 </template>
 
 <style scoped>
@@ -896,16 +919,16 @@
   }
 
   .modal-logo {
-    width: 4rem;
-    height: 4rem;
-    object-fit: contain;
+    width: 4.6rem;
+    height: auto;
     flex-shrink: 0;
+    align-self: flex-start;
   }
 
   .modal-team-info {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 0.2rem;
     min-width: 0;
     position: relative;
     top: -0.3rem;
@@ -958,6 +981,46 @@
     );
     letter-spacing: 0.04em;
     line-height: 1.38;
+    margin: 0.15rem 0;
+  }
+
+  /* Venue name as clickable button — reset button chrome, thin underline to
+     signal it's a link. Text color is explicitly set (not `inherit`) since
+     native <button> elements have their own default text color that would
+     otherwise win over the themed on-primary color, making it unreadable
+     against darker team-color backgrounds. Starts dim, brightens to solid
+     white on hover. */
+  button.modal-venue.venue-link {
+    font-family: 'Barlow Condensed';
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: color-mix(
+      in oklab,
+      var(--color-theme-on-primary, white) 80%,
+      transparent
+    );
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0 0 0.3rem;
+    cursor: pointer;
+    text-align: left;
+    width: fit-content;
+    text-decoration: underline;
+    text-decoration-color: color-mix(
+      in oklab,
+      var(--color-theme-on-primary, white) 35%,
+      transparent
+    );
+    text-underline-offset: 0.2em;
+    transition: color 0.15s;
+  }
+
+  button.modal-venue.venue-link:hover {
+    color: var(--color-theme-on-primary, white);
+    text-decoration-color: var(--color-theme-on-primary, white);
   }
 
   .venue-short {

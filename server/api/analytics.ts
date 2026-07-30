@@ -1,22 +1,23 @@
 // server/api/analytics.ts
 // Returns analytics data for the admin dashboard.
+//
+// Historical days were recorded before bot filtering existed, so stored
+// topPages are re-classified here at read time: page views are recomputed
+// from the human-only paths, and probe traffic is reported separately as
+// botViews. This cleans past data without mutating the blobs.
 
 import { getStore } from '@netlify/blobs'
-
-interface StoredDayStats {
-  pageViews: number
-  uniqueVisitors: string[]
-  sessions: number
-  topPages: Record<string, number>
-  hourly: Record<string, number>
-}
+import { classifyPath, type StoredDayStats } from '../utils/analyticsFilter'
 
 interface DaySummary {
   date: string
   pageViews: number
+  rawPageViews: number
+  botViews: number
   uniqueVisitors: number
   sessions: number
   topPages: { path: string; views: number }[]
+  botPages: { path: string; views: number }[]
   hourly: { hour: string; views: number }[]
 }
 
@@ -44,7 +45,34 @@ export default defineEventHandler(async (_event) => {
 
       if (!raw) continue
 
-      const topPages = Object.entries(raw.topPages ?? {})
+      const entries = Object.entries(raw.topPages ?? {})
+      const humanEntries = entries.filter(
+        ([path]) => classifyPath(path) === 'track'
+      )
+      const legacyBotEntries = entries.filter(
+        ([path]) => classifyPath(path) !== 'track'
+      )
+
+      const humanViews = humanEntries.reduce((sum, [, v]) => sum + v, 0)
+      const rawPageViews = raw.pageViews ?? 0
+
+      // Days recorded before topPages existed can't be decomposed — fall
+      // back to the stored total rather than reporting zero.
+      const pageViews = entries.length > 0 ? humanViews : rawPageViews
+
+      const botViews =
+        legacyBotEntries.reduce((sum, [, v]) => sum + v, 0) +
+        (raw.botViews ?? 0)
+
+      const botPages = [
+        ...legacyBotEntries,
+        ...Object.entries(raw.botPaths ?? {}),
+      ]
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([path, views]) => ({ path, views }))
+
+      const topPages = humanEntries
         .sort(([, a], [, b]) => b - a)
         .slice(0, 10)
         .map(([path, views]) => ({ path, views }))
@@ -55,10 +83,13 @@ export default defineEventHandler(async (_event) => {
 
       days.push({
         date: dateKey,
-        pageViews: raw.pageViews ?? 0,
+        pageViews,
+        rawPageViews,
+        botViews,
         uniqueVisitors: (raw.uniqueVisitors ?? []).length,
         sessions: raw.sessions ?? 0,
         topPages,
+        botPages,
         hourly,
       })
     }
@@ -67,10 +98,18 @@ export default defineEventHandler(async (_event) => {
     const totals = days.reduce(
       (acc, d) => ({
         pageViews: acc.pageViews + d.pageViews,
+        rawPageViews: acc.rawPageViews + d.rawPageViews,
+        botViews: acc.botViews + d.botViews,
         uniqueVisitors: acc.uniqueVisitors + d.uniqueVisitors,
         sessions: acc.sessions + d.sessions,
       }),
-      { pageViews: 0, uniqueVisitors: 0, sessions: 0 }
+      {
+        pageViews: 0,
+        rawPageViews: 0,
+        botViews: 0,
+        uniqueVisitors: 0,
+        sessions: 0,
+      }
     )
 
     // Aggregate top pages across all days
@@ -85,8 +124,19 @@ export default defineEventHandler(async (_event) => {
       .slice(0, 10)
       .map(([path, views]) => ({ path, views }))
 
-    return { days, totals, topPages: topPagesAll }
-  } catch (err) {
+    const allBotPages: Record<string, number> = {}
+    for (const day of days) {
+      for (const { path, views } of day.botPages) {
+        allBotPages[path] = (allBotPages[path] ?? 0) + views
+      }
+    }
+    const botPagesAll = Object.entries(allBotPages)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+      .map(([path, views]) => ({ path, views }))
+
+    return { days, totals, topPages: topPagesAll, botPages: botPagesAll }
+  } catch {
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to load analytics',

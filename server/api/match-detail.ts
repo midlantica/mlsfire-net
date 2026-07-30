@@ -2,7 +2,10 @@
 // Accepts ?eventId=<espnEventId>
 // Returns boxscore stats, odds, rosters, head-to-head, venue, leaders
 
+import { ALL_STAR_FALLBACK_ROSTERS } from '../utils/allStarRosters'
+
 const CACHE_TTL_LIVE_MS = 30_000 // 30 s during live matches
+
 const CACHE_TTL_IDLE_MS = 5 * 60_000 // 5 min for completed/pre-match
 
 interface CacheEntry {
@@ -133,26 +136,51 @@ export default defineEventHandler(async (event) => {
     const rostersRaw = (raw.rosters as Array<Record<string, unknown>>) ?? []
     const rosters = rostersRaw.map((r) => {
       const t = r.team as Record<string, unknown> | undefined
+      const teamId = t?.id as string
+      const teamDisplayName = t?.displayName as string
       const roster = (r.roster as Array<Record<string, unknown>>) ?? []
+
+      let players = roster.map((p) => {
+        const a = p.athlete as Record<string, unknown> | undefined
+        const pos = p.position as Record<string, unknown> | undefined
+        return {
+          id: a?.id as string,
+          displayName: a?.displayName as string,
+          shortName: a?.shortName as string,
+          jersey: p.jersey as string | undefined,
+          position:
+            (pos?.abbreviation as string) ?? (pos?.name as string) ?? '',
+          positionName: pos?.displayName as string | undefined,
+          starter: p.starter as boolean,
+          subbedIn: p.subbedIn as boolean,
+          subbedOut: p.subbedOut as boolean,
+        }
+      })
+
+      // ESPN doesn't publish rosters for exhibition/all-star fixtures.
+      // Fall back to a hand-maintained player pool for the event, if we
+      // have one, so the Lineups tab has something useful to show.
+      if (players.length === 0) {
+        const fallback = ALL_STAR_FALLBACK_ROSTERS[eventId]?.[teamDisplayName]
+        if (fallback) {
+          players = fallback.map((p) => ({
+            id: p.displayName,
+            displayName: p.displayName,
+            shortName: p.displayName,
+            jersey: undefined,
+            position: p.position,
+            positionName: undefined,
+            starter: false,
+            subbedIn: false,
+            subbedOut: false,
+          }))
+        }
+      }
+
       return {
-        teamId: t?.id as string,
-        displayName: t?.displayName as string,
-        players: roster.map((p) => {
-          const a = p.athlete as Record<string, unknown> | undefined
-          const pos = p.position as Record<string, unknown> | undefined
-          return {
-            id: a?.id as string,
-            displayName: a?.displayName as string,
-            shortName: a?.shortName as string,
-            jersey: p.jersey as string | undefined,
-            position:
-              (pos?.abbreviation as string) ?? (pos?.name as string) ?? '',
-            positionName: pos?.displayName as string | undefined,
-            starter: p.starter as boolean,
-            subbedIn: p.subbedIn as boolean,
-            subbedOut: p.subbedOut as boolean,
-          }
-        }),
+        teamId,
+        displayName: teamDisplayName,
+        players,
       }
     })
 

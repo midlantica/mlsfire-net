@@ -1,6 +1,91 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  edge_functions = "netlify/edge-functions"
 
 [build.environment]
   NODE_VERSION = "22"
+
+# ── Exploit-scanner blocking (fallback layer) ───────────────────────────────
+# Primary blocking lives in netlify/edge-functions/block-scanners.ts, which
+# runs earlier in the request chain and matches patterns these static rules
+# can't express (e.g. "*.php at any depth"). These redirects remain as a
+# belt-and-braces fallback in case the edge function is ever unavailable.
+#
+# Scanner probes made up roughly half of all incoming requests. Answering
+# with a static 410 means the Nitro function is never invoked, so they cost
+# nothing and never reach analytics.
+# NOTE: /admin is a real route (the analytics dashboard) — never block it.
+
+
+[[redirects]]
+  from = "/wp-admin/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-content/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-includes/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wordpress/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-login.php"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/xmlrpc.php"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/admin.php"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/administrator/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/phpmyadmin/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/vendor/*"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/.env"
+  to = "/410.html"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/.git/*"
+  to = "/410.html"
+  status = 410
+  force = true

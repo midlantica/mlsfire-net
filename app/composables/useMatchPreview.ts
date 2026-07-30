@@ -19,9 +19,15 @@ export interface MatchPreviewInput {
   previewOdds?: PreviewOdds
 }
 
+export interface PreviewLink {
+  label: string
+  url: string
+}
+
 export interface MatchPreview {
   template: string
   text: string
+  links?: PreviewLink[]
 }
 
 function ordinal(n: number): string {
@@ -218,4 +224,25 @@ export function generateMatchPreview(
 
   const index = hashCode(input.eventId) % candidates.length
   return candidates[index] ?? candidates[0] ?? null
+}
+
+// ── All-Star Game preview (hand-written, no ESPN season stats to draw on) ────
+export function generateAllStarPreview(eventId: string): MatchPreview {
+  const variants = [
+    `Charlotte FC boss Dean Smith takes the reins for the MLS All-Stars, while Deportivo Toluca's Antonio Mohamed marshals a stacked Liga MX side. Keep an eye on Petar Musa — he leads the current MLS season in scoring with 13 goals and just wrapped up a World Cup with Croatia.`,
+    `Two all-conquering managers, two loaded player pools: Dean Smith picks his XI for MLS, Antonio Mohamed picks his for Liga MX. Petar Musa's 13 goals lead all of MLS this season, and Salomón Rondón anchors a dangerous Liga MX forward line.`,
+    `Bank of America Stadium hosts the exhibition, with Dean Smith and Antonio Mohamed each drawing from a full player pool rather than a settled XI. MLS's pool leans on in-form scorers like Petar Musa and Hany Mukhtar; Liga MX counters with Juan Brunetta and Salomón Rondón.`,
+    `No fixed lineup yet — Dean Smith (MLS All-Stars) and Antonio Mohamed (Liga MX All-Stars) are each choosing their starting XI from a full roster of standouts, headlined by MLS's leading scorer Petar Musa and Liga MX veteran Salomón Rondón.`,
+  ]
+  const idx = pickVariant(`${eventId}-all-star`, variants.length)
+  return {
+    template: 'all-star',
+    text: variants[idx] ?? variants[0]!,
+    links: [
+      {
+        label: 'Full 2026 MLS All-Star roster',
+        url: 'https://www.mlssoccer.com/news/2026-mls-all-star-team-roster',
+      },
+    ],
+  }
 }

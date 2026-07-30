@@ -1,42 +1,23 @@
 // server/api/analytics/pageview.post.ts
 // Records a client-side page navigation (SPA route change).
 // Called from the client whenever Vue Router navigates to a new path.
+//
+// This beacon requires JS execution, so it is inherently far more
+// bot-resistant than the SSR middleware — but the same filters are applied
+// for defence in depth (headless browsers do run JS).
 
 import { getStore } from '@netlify/blobs'
-import { createHash } from 'node:crypto'
-
-const SKIP_PREFIXES = ['/api/', '/_nuxt/', '/__nuxt', '/favicon', '/admin']
-
-function getExcludedIps(): string[] {
-  return (process.env.ANALYTICS_EXCLUDE_IPS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-function hashIp(ip: string): string {
-  return createHash('sha256')
-    .update(ip + 'mls-salt-2026')
-    .digest('hex')
-    .slice(0, 16)
-}
-
-function todayKey(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function hourKey(): string {
-  const d = new Date()
-  return `${d.toISOString().slice(0, 13)}:00`
-}
-
-interface StoredDayStats {
-  pageViews: number
-  uniqueVisitors: string[]
-  sessions: number
-  topPages: Record<string, number>
-  hourly: Record<string, number>
-}
+import {
+  classifyPath,
+  cleanPath,
+  getClientIp,
+  hashIp,
+  hourKey,
+  isBotUserAgent,
+  isExcludedIp,
+  todayKey,
+  type StoredDayStats,
+} from '../../utils/analyticsFilter'
 
 export default defineEventHandler(async (event) => {
   // Only run on Netlify
@@ -45,22 +26,26 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event).catch(() => null)
-  const path: string =
-    typeof body?.path === 'string' ? body.path.split('?')[0] || '/' : '/'
+  const path = cleanPath(typeof body?.path === 'string' ? body.path : '/')
 
-  // Skip non-page paths
-  if (SKIP_PREFIXES.some((p) => path.startsWith(p))) return { ok: false }
+  // Only count real app routes
+  if (classifyPath(path) !== 'track') return { ok: false }
+
+  // Beacons come from our own pages; a missing/foreign origin means a
+  // script is posting directly to the endpoint.
+  const origin = event.headers?.get?.('origin') ?? ''
+  const host = event.headers?.get?.('host') ?? ''
+  if (host && origin && !origin.endsWith(host)) return { ok: false }
+
+  if (isBotUserAgent(event.headers?.get?.('user-agent'))) return { ok: false }
 
   try {
+    const ip = getClientIp(event)
+    if (isExcludedIp(ip)) return { ok: false }
+
     const store = getStore('analytics')
     const dayKey = todayKey()
     const hKey = hourKey()
-
-    const ip =
-      (event.headers?.get?.('x-forwarded-for') ?? '').split(',')[0]?.trim() ||
-      (event.node?.req?.socket?.remoteAddress ?? 'unknown')
-
-    if (getExcludedIps().includes(ip)) return { ok: false }
 
     const visitorId = hashIp(ip)
 
@@ -80,10 +65,7 @@ export default defineEventHandler(async (event) => {
       stats.uniqueVisitors.push(visitorId)
     }
 
-    // Record the path
     stats.topPages[path] = (stats.topPages[path] ?? 0) + 1
-
-    // Hourly
     stats.hourly[hKey] = (stats.hourly[hKey] ?? 0) + 1
 
     await store.set(dayKey, JSON.stringify(stats))

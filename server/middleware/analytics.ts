@@ -2,72 +2,46 @@
 // Tracks page views, unique visitors (by hashed IP), and sessions.
 // Data is stored in Netlify Blobs under the "analytics" store.
 // Only runs in production (Netlify) — skipped locally to avoid noise.
+//
+// Bot/scanner traffic is bucketed into botViews/botPaths rather than counted
+// as human traffic: unknown paths (/wp-admin/install.php, /contact, …) and
+// non-browser user agents never touch pageViews/uniqueVisitors/sessions.
 
 import { getStore } from '@netlify/blobs'
-import { createHash } from 'node:crypto'
-
-// Skip tracking for API routes, static assets, and admin page
-const SKIP_PREFIXES = ['/api/', '/_nuxt/', '/__nuxt', '/favicon', '/admin']
-
-// IPs to exclude from analytics (comma-separated in ANALYTICS_EXCLUDE_IPS env var)
-function getExcludedIps(): string[] {
-  return (process.env.ANALYTICS_EXCLUDE_IPS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-function hashIp(ip: string): string {
-  return createHash('sha256')
-    .update(ip + 'mls-salt-2026')
-    .digest('hex')
-    .slice(0, 16)
-}
-
-function todayKey(): string {
-  return new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
-}
-
-function hourKey(): string {
-  const d = new Date()
-  return `${d.toISOString().slice(0, 13)}:00` // "YYYY-MM-DDTHH:00"
-}
-
-interface StoredDayStats {
-  pageViews: number
-  uniqueVisitors: string[]
-  sessions: number
-  topPages: Record<string, number>
-  hourly: Record<string, number>
-}
+import {
+  classifyPath,
+  cleanPath,
+  getClientIp,
+  hashIp,
+  hourKey,
+  isBotUserAgent,
+  isExcludedIp,
+  recordBotHit,
+  todayKey,
+  type StoredDayStats,
+} from '../utils/analyticsFilter'
 
 export default defineEventHandler(async (event) => {
   const path = event.path ?? '/'
 
-  // Skip non-page routes
-  if (SKIP_PREFIXES.some((p) => path.startsWith(p))) return
+  const kind = classifyPath(path)
+  if (kind === 'ignore') return
 
   // Only run on Netlify (env var NETLIFY is set automatically)
   if (!process.env.NETLIFY && !process.env.NETLIFY_BLOBS_CONTEXT) return
 
   try {
+    const ip = getClientIp(event)
+
+    // Skip excluded IPs (e.g. the site owner's IP set via ANALYTICS_EXCLUDE_IPS)
+    if (isExcludedIp(ip)) return
+
+    const isBot =
+      kind === 'bot' || isBotUserAgent(event.headers?.get?.('user-agent'))
+
     const store = getStore('analytics')
     const dayKey = todayKey()
     const hKey = hourKey()
-
-    // Get raw IP from headers
-    const ip =
-      (event.headers?.get?.('x-forwarded-for') ?? '').split(',')[0]?.trim() ||
-      (event.node?.req?.socket?.remoteAddress ?? 'unknown')
-
-    // Skip excluded IPs (e.g. the site owner's IP set via ANALYTICS_EXCLUDE_IPS)
-    if (getExcludedIps().includes(ip)) return
-
-    const visitorId = hashIp(ip)
-
-    // Session: use a cookie or treat each request as a session hit
-    // (simple approach: count requests per visitor per hour as 1 session)
-    const sessionKey = `session:${visitorId}:${hKey}`
 
     // Load today's stats
     const raw = (await store
@@ -81,26 +55,30 @@ export default defineEventHandler(async (event) => {
       hourly: {},
     }
 
-    // Check if this is a new session this hour
+    if (isBot) {
+      recordBotHit(stats, cleanPath(path))
+      await store.set(dayKey, JSON.stringify(stats))
+      return
+    }
+
+    const visitorId = hashIp(ip)
+
+    // Session: count requests per visitor per hour as 1 session
+    const sessionKey = `session:${visitorId}:${hKey}`
     const sessionSeen = await store.get(sessionKey).catch(() => null)
     const isNewSession = !sessionSeen
 
-    // Update stats
     stats.pageViews += 1
     if (!stats.uniqueVisitors.includes(visitorId)) {
       stats.uniqueVisitors.push(visitorId)
     }
     if (isNewSession) {
       stats.sessions += 1
-      // Mark session as seen (expires after 1 hour via TTL-like key)
       await store.set(sessionKey, '1')
     }
 
-    // Top pages — normalize path (strip query strings)
-    const cleanPath = path.split('?')[0] || '/'
-    stats.topPages[cleanPath] = (stats.topPages[cleanPath] ?? 0) + 1
-
-    // Hourly breakdown
+    const path0 = cleanPath(path)
+    stats.topPages[path0] = (stats.topPages[path0] ?? 0) + 1
     stats.hourly[hKey] = (stats.hourly[hKey] ?? 0) + 1
 
     await store.set(dayKey, JSON.stringify(stats))

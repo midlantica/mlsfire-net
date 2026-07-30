@@ -1,10 +1,18 @@
 <script setup lang="ts">
   import type { Match } from '~/composables/useScores'
   import { useMatchDetail, type MatchEvent } from '~/composables/useMatchDetail'
-  import { TEAM_LOGO, TEAM_ESPN_ID, TEAM_ABBREV } from '~/composables/useMyTeam'
+  import {
+    TEAM_LOGO,
+    TEAM_ESPN_ID,
+    TEAM_ABBREV,
+    ALL_STAR_TEAMS,
+  } from '~/composables/useMyTeam'
   import { useTimezone } from '~/composables/useTimezone'
   import { useConferenceBadges } from '~/composables/useStandings'
-  import { generateMatchPreview } from '~/composables/useMatchPreview'
+  import {
+    generateMatchPreview,
+    generateAllStarPreview,
+  } from '~/composables/useMatchPreview'
   import { getStadiumInfo } from '~/constants/venues'
   import {
     getRoundInfo,
@@ -279,6 +287,14 @@
   const seriesDecided = computed(() => isSeriesDecided(seriesNote.value))
   const isLeaguesCup = computed(
     () => getCompetition(props.match?.seasonSlug) === 'Leagues Cup'
+  )
+  // The ESPN feed tags this fixture's season as a normal "regular-season"
+  // slug (no dedicated All-Star slug exists), so detect it by team name
+  // instead of by competition/season metadata.
+  const isAllStarGame = computed(
+    () =>
+      ALL_STAR_TEAMS.includes(homeTeam.value) &&
+      ALL_STAR_TEAMS.includes(awayTeam.value)
   )
 
   const { strengthFor, load: loadClubStrength } = useClubStrength()
@@ -639,6 +655,7 @@
 
   const matchPreview = computed(() => {
     if (!props.match) return null
+    if (isAllStarGame.value) return generateAllStarPreview(props.match.id)
     return generateMatchPreview({
       eventId: props.match.id,
       homeTeam: homeTeam.value,
