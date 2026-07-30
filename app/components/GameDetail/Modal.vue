@@ -685,8 +685,15 @@
             <!-- ── Header ──────────────────────────────────────────────────────── -->
             <div class="modal-header">
               <!-- Playoff stage banner — postseason matches only -->
-              <div v-if="roundInfo" class="header-stage">
-                <span class="header-stage-label">
+              <div
+                v-if="roundInfo"
+                class="header-stage"
+                :class="{ 'header-stage-lc': isLeaguesCup }"
+              >
+                <span
+                  class="header-stage-label"
+                  :class="{ 'header-stage-label-lc': isLeaguesCup }"
+                >
                   <span
                     v-if="isLeaguesCup"
                     class="stage-mark"
@@ -1873,6 +1880,13 @@
     margin-bottom: 0.5rem;
   }
 
+  /* Leagues Cup only: sits closer to the top of the modal, with more room
+     below it before the team/score row. */
+  .header-stage-lc {
+    margin-top: -0.4rem;
+    margin-bottom: 0.85rem;
+  }
+
   .header-stage-label {
     display: inline-flex;
     align-items: center;
@@ -1886,11 +1900,19 @@
     line-height: 1.3;
   }
 
+  /* Leagues Cup only: ~15% larger and brighter/whiter than the standard
+     postseason stage label. */
+  .header-stage-label-lc {
+    font-size: 0.8625rem;
+    color: oklab(97% 0 0 / 0.92);
+  }
+
   /* The Leagues Cup mark is painted via mask so it inherits the label colour
-     the same way currentColor would on an inline SVG. */
+     the same way currentColor would on an inline SVG. Sized to match the
+     label text's cap height rather than its full em box. */
   .stage-mark {
-    width: 0.95em;
-    height: 0.98em;
+    width: 0.75em;
+    height: 0.77em;
     flex-shrink: 0;
     background: currentColor;
     mask: url('/Leagues-cup-symbol.svg') no-repeat center / contain;
@@ -1918,6 +1940,9 @@
     .header-stage-label {
       font-size: 0.65rem;
       letter-spacing: 0.16em;
+    }
+    .header-stage-label-lc {
+      font-size: 0.7475rem;
     }
     .header-series-note {
       font-size: 0.68rem;

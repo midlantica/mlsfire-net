@@ -447,7 +447,7 @@
             aria-label="About Leagues Cup"
             @click="leaguesCupInfoOpen = true"
           >
-            <img src="/info-rounded-w.svg" alt="" class="lc-info-icon" />
+            <img src="/info-rounded.svg" alt="" class="lc-info-icon" />
           </button>
         </div>
         <h2 class="day-heading">{{ day.label }}, {{ day.shortDate }}</h2>

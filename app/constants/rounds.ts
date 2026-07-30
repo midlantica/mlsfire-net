@@ -97,7 +97,7 @@ export function getRoundInfo(seasonSlug?: string | null): RoundInfo | null {
     return {
       ...cup,
       conference: null,
-      stage: `LEAGUES CUP · ${cup.label.toUpperCase()}`,
+      stage: `LEAGUES CUP ⏵ ${cup.label.toUpperCase()}`,
     }
   }
 
