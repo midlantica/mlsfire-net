@@ -9,10 +9,7 @@ import type { H3Event } from 'h3'
 
 function isProtectedPath(path: string): boolean {
   return (
-    path === '/admin' ||
-    path.startsWith('/admin/') ||
-    path === '/api/analytics' ||
-    path === '/api/analytics/reset'
+    path === '/admin' || path.startsWith('/admin/') || path === '/api/analytics'
   )
 }
 
