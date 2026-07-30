@@ -58,6 +58,25 @@
     { lazy: true }
   )
 
+  const resetting = ref(false)
+
+  async function resetAnalytics() {
+    if (
+      !confirm(
+        'Delete all stored analytics data? This cannot be undone — tracking starts fresh from zero.'
+      )
+    ) {
+      return
+    }
+    resetting.value = true
+    try {
+      await $fetch('/api/analytics/reset', { method: 'POST' })
+      await refresh()
+    } finally {
+      resetting.value = false
+    }
+  }
+
   const selectedDay = ref<DaySummary | null>(null)
 
   function fmtDate(iso: string) {
@@ -208,7 +227,12 @@
   <div class="admin-wrap">
     <div class="admin-header">
       <h1 class="admin-title">📊 MLS Analytics</h1>
-      <button class="refresh-btn" @click="refresh()">↻ Refresh</button>
+      <div class="header-actions">
+        <button class="reset-btn" :disabled="resetting" @click="resetAnalytics">
+          {{ resetting ? 'Resetting…' : '🗑 Reset Data' }}
+        </button>
+        <button class="refresh-btn" @click="refresh()">↻ Refresh</button>
+      </div>
     </div>
 
     <div v-if="error" class="admin-error">
@@ -542,6 +566,12 @@
     color: white;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .refresh-btn {
     background: #1e293b;
     border: 1px solid #334155;
@@ -554,6 +584,24 @@
   }
   .refresh-btn:hover {
     color: white;
+  }
+
+  .reset-btn {
+    background: oklch(0.28 0.05 25 / 0.5);
+    border: 1px solid oklch(0.42 0.1 25);
+    color: oklch(0.72 0.12 25);
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: color 0.15s;
+  }
+  .reset-btn:hover:not(:disabled) {
+    color: oklch(0.85 0.15 25);
+  }
+  .reset-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .admin-error,
