@@ -8,7 +8,6 @@
     getCompetition,
     calcLeaguesCupHeat,
   } from '../constants/rounds'
-  import { useClubStrength } from '../composables/useClubStrength'
 
   const props = defineProps<{
     match: Match
@@ -22,7 +21,7 @@
   }>()
 
   const { formatTimeHtml, iana } = useTimezone()
-  const { badgeByTeam } = useConferenceBadges()
+  const { badgeByTeam, crossLeagueStrengthFor } = useConferenceBadges()
 
   const homeBadge = computed(() => badgeByTeam.value[props.match.home])
   const awayBadge = computed(() => badgeByTeam.value[props.match.away])
@@ -62,20 +61,14 @@
   const isFT = computed(() => props.match.status.code === 'ft')
   const isNS = computed(() => props.match.status.code === 'ns')
 
-  const { strengthFor, load: loadClubStrength } = useClubStrength()
-
   const isLeaguesCup = computed(
     () => getCompetition(props.match.seasonSlug) === 'Leagues Cup'
   )
 
-  onMounted(() => {
-    if (isLeaguesCup.value) loadClubStrength()
-  })
-
   const leaguesCupHeat = computed(() =>
     calcLeaguesCupHeat(
-      strengthFor(props.match.home),
-      strengthFor(props.match.away),
+      crossLeagueStrengthFor(props.match.home),
+      crossLeagueStrengthFor(props.match.away),
       props.match.seasonSlug
     )
   )

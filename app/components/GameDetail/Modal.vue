@@ -20,7 +20,6 @@
     getCompetition,
     calcLeaguesCupHeat,
   } from '~/constants/rounds'
-  import { useClubStrength } from '~/composables/useClubStrength'
   import { isLigaMxTeam } from '~/constants/ligamx'
 
   // ── Props / emits ─────────────────────────────────────────────────────────────
@@ -297,16 +296,12 @@
       ALL_STAR_TEAMS.includes(awayTeam.value)
   )
 
-  const { strengthFor, load: loadClubStrength } = useClubStrength()
-
-  onMounted(() => {
-    if (isLeaguesCup.value) loadClubStrength()
-  })
+  const { badgeByTeam, crossLeagueStrengthFor } = useConferenceBadges()
 
   const leaguesCupHeat = computed(() =>
     calcLeaguesCupHeat(
-      strengthFor(props.match?.home),
-      strengthFor(props.match?.away),
+      crossLeagueStrengthFor(props.match?.home),
+      crossLeagueStrengthFor(props.match?.away),
       props.match?.seasonSlug
     )
   )
@@ -478,7 +473,6 @@
   )
 
   // ── Conference position badge (e.g. "8E" / "3W") ─────────────────────────
-  const { badgeByTeam } = useConferenceBadges()
   const homeBadge = computed(() => badgeByTeam.value[homeTeam.value])
   const awayBadge = computed(() => badgeByTeam.value[awayTeam.value])
 

@@ -27,6 +27,13 @@ export const LIGAMX_TEAMS: LigaMxTeam[] = [
     espnId: '227',
   },
   {
+    name: 'Atlante',
+    abbrev: 'ATE',
+    short: 'Atlante',
+    color: '022789',
+    espnId: '226',
+  },
+  {
     name: 'Atlas',
     abbrev: 'ATS',
     short: 'Atlas',

@@ -140,5 +140,44 @@ export function useConferenceBadges() {
     return map
   })
 
-  return { badgeByTeam }
+  // Cross-league comparable strength, 0-1, for Leagues Cup fire/wild badges.
+  // MLS clubs are scored by *conference* rank (the same number shown in the
+  // "6W" / "1E" badge), not whole-table rank — a team's Leagues Cup draw
+  // doesn't care which conference it plays in, but "2W" is a much stronger
+  // signal of quality than "2nd of 29" once both conferences get pooled
+  // together for a single-table percentile. Liga MX clubs are scored by
+  // table rank, then discounted a flat amount: even the best Liga MX sides
+  // run a shade below MLS's best on average (money, depth), though the gap
+  // narrows for the very top clubs and widens further down the table — a
+  // single flat handicap is a reasonable first approximation of that
+  // "half tier below" gap.
+  const LIGA_MX_HANDICAP = 0.18
+
+  const crossLeagueStrength = computed(() => {
+    const map: Record<string, number> = {}
+    for (const conf of conferences.value) {
+      const size = conf.entries.length
+      if (size < 2) continue
+      for (const entry of conf.entries) {
+        map[entry.team] = 1 - (entry.rank - 1) / (size - 1)
+      }
+    }
+    const mxEntries = Object.entries(strength.value.ligamxRank)
+    const mxSize = mxEntries.length
+    if (mxSize >= 2) {
+      for (const [team, rank] of mxEntries) {
+        const pct = 1 - (rank - 1) / (mxSize - 1)
+        map[team] = Math.max(0, pct - LIGA_MX_HANDICAP)
+      }
+    }
+    return map
+  })
+
+  function crossLeagueStrengthFor(team?: string | null): number | null {
+    if (!team) return null
+    const v = crossLeagueStrength.value[team]
+    return typeof v === 'number' ? v : null
+  }
+
+  return { badgeByTeam, crossLeagueStrengthFor }
 }

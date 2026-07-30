@@ -5,6 +5,10 @@
 //
 // In-memory cache: 30 s TTL when matches are live/HT, 90 s otherwise.
 // On ESPN failure, stale cached data is returned silently (no error screen).
+//
+// Also merges in Leagues Cup (concacaf.leagues.cup) events for the same
+// date range, since MLS clubs play Leagues Cup fixtures during the regular
+// season and those games must appear on the wall alongside MLS matches.
 
 function toDateStr(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
@@ -192,6 +196,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>()
+const leaguesCupCache = new Map<string, CacheEntry>()
 
 /** Fetch a date range from ESPN (via cache when fresh), returning stale/error flags. */
 async function fetchRange(
@@ -231,6 +236,81 @@ async function fetchRange(
   }
 }
 
+/**
+ * Fetch a date range from ESPN's Leagues Cup scoreboard. Fails soft — a
+ * Leagues Cup outage must never break the primary MLS response, so any
+ * error (with no usable cache) resolves to an empty events array with no
+ * stale/error flags surfaced to the client.
+ */
+async function fetchLeaguesCupRange(
+  from: string,
+  to: string,
+  bustCache: boolean
+): Promise<{ events: Array<Record<string, unknown>> }> {
+  const cacheKey = `${from}-${to}`
+  const now = Date.now()
+  const cached = leaguesCupCache.get(cacheKey)
+
+  if (!bustCache && cached) {
+    const ttl = hasLiveEvents(cached.data)
+      ? CACHE_TTL_LIVE_MS
+      : CACHE_TTL_IDLE_MS
+    if (now - cached.fetchedAt < ttl) {
+      return {
+        events: (cached.data.events as Array<Record<string, unknown>>) ?? [],
+      }
+    }
+  }
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${from}-${to}`
+
+  try {
+    const data = await $fetch<Record<string, unknown>>(url)
+    leaguesCupCache.set(cacheKey, { data, fetchedAt: now })
+    return { events: (data.events as Array<Record<string, unknown>>) ?? [] }
+  } catch {
+    // Leagues Cup competitor records are static placeholders, so a stale
+    // cached copy is just as good as a fresh one here — no need to surface
+    // staleness to the client.
+    if (cached) {
+      return {
+        events: (cached.data.events as Array<Record<string, unknown>>) ?? [],
+      }
+    }
+    return { events: [] }
+  }
+}
+
+/**
+ * Fetch and merge MLS + Leagues Cup events for a date range. MLS events keep
+ * their `applyPriorRecords`-computed W-D-L (handled inside `fetchRange`);
+ * Leagues Cup events are appended as-is (their competitor records are static
+ * placeholders from ESPN and are never recomputed).
+ */
+async function fetchMergedRange(
+  from: string,
+  to: string,
+  bustCache: boolean
+): Promise<{
+  data: Record<string, unknown>
+  stale?: boolean
+  error?: boolean
+}> {
+  const [mls, leaguesCup] = await Promise.all([
+    fetchRange(from, to, bustCache),
+    fetchLeaguesCupRange(from, to, bustCache),
+  ])
+
+  const mlsEvents = (mls.data.events as Array<Record<string, unknown>>) ?? []
+  const mergedEvents = [...mlsEvents, ...leaguesCup.events]
+
+  return {
+    data: { ...mls.data, events: mergedEvents },
+    stale: mls.stale,
+    error: mls.error,
+  }
+}
+
 function eventCount(data: Record<string, unknown>): number {
   return ((data.events as Array<unknown>) ?? []).length
 }
@@ -242,7 +322,7 @@ export default defineEventHandler(async (event) => {
   if (query.date) {
     const from = query.date as string
     const to = query.date as string
-    const result = await fetchRange(from, to, bustCache)
+    const result = await fetchMergedRange(from, to, bustCache)
     return {
       ...result.data,
       _weekLabel: from,
@@ -256,7 +336,7 @@ export default defineEventHandler(async (event) => {
   if (query.from && query.to) {
     const from = query.from as string
     const to = query.to as string
-    const result = await fetchRange(from, to, bustCache)
+    const result = await fetchMergedRange(from, to, bustCache)
     return {
       ...result.data,
       _weekLabel: `${from}–${to}`,
@@ -273,8 +353,9 @@ export default defineEventHandler(async (event) => {
   // Always check ESPN for the literal calendar week first — MLS occasionally
   // schedules games inside a "hiatus" window (e.g. a short return before the
   // official resumption date), and we must never hide real games behind a
-  // hardcoded hiatus message.
-  const primary = await fetchRange(literal.from, literal.to, bustCache)
+  // hardcoded hiatus message. This also picks up Leagues Cup fixtures, which
+  // can occur during weeks where MLS itself has few or no games scheduled.
+  const primary = await fetchMergedRange(literal.from, literal.to, bustCache)
 
   if (eventCount(primary.data) > 0) {
     return {
@@ -287,12 +368,12 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // No games found in the literal calendar week — check whether this falls
-  // inside a known hiatus window.
+  // No games found in the literal calendar week (MLS or Leagues Cup) — check
+  // whether this falls inside a known hiatus window.
   const hiatus = getHiatus(literal.monday)
 
   if (!hiatus) {
-    // Genuinely no MLS games this week (bye week, etc.) — plain empty result.
+    // Genuinely no games this week (bye week, etc.) — plain empty result.
     return {
       events: [],
       _weekLabel: literal.label,
@@ -335,7 +416,7 @@ export default defineEventHandler(async (event) => {
   const snapMonday =
     weekOffset === -1 ? hiatus.lastGameWeekMonday : hiatus.nextGameWeekMonday
   const snapped = snappedWeekBounds(snapMonday)
-  const snapResult = await fetchRange(snapped.from, snapped.to, bustCache)
+  const snapResult = await fetchMergedRange(snapped.from, snapped.to, bustCache)
 
   return {
     ...snapResult.data,

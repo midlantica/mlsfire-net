@@ -144,13 +144,23 @@ export function isSeriesDecided(note?: string | null): boolean {
 
 export type LeaguesCupHeat = 'hot' | 'cool' | 'plain'
 
-const TOP_THIRD = 2 / 3
-const LOW_THIRD = 1 / 3
+// A marquee ("hot") pairing needs both sides to be genuinely good AND closely
+// matched — a strong team dragging a weak one across the line doesn't count.
+// A merely "competitive" (cool) pairing relaxes both bars a little: teams
+// don't need to be elite, just not badly mismatched.
+const HOT_AVG = 0.55
+const HOT_GAP = 0.35
+const COOL_AVG = 0.3
+const COOL_GAP = 0.4
 
 /**
- * Rates a Leagues Cup tie from the weaker side's league-strength percentile,
- * so a giant-vs-minnow pairing never reads as a marquee match.
- * Percentiles are within each club's own league (see /api/club-strength).
+ * Rates a Leagues Cup tie from both sides' cross-league-comparable strength
+ * (see `useConferenceBadges().crossLeagueStrengthFor` — conference rank for
+ * MLS clubs, handicapped table rank for Liga MX clubs, both 0-1 on the same
+ * scale). A pairing only reads as "hot" when both teams are strong *and*
+ * closely matched; a big gap between a strong side and a weak one is a
+ * mismatch, not a marquee game, even though the stronger side alone would
+ * clear the bar.
  */
 export function calcLeaguesCupHeat(
   homePct: number | null,
@@ -164,8 +174,11 @@ export function calcLeaguesCupHeat(
   if (round && round.weight >= 3) return 'hot'
   if (homePct == null || awayPct == null) return isKnockout ? 'cool' : 'plain'
 
-  const weaker = Math.min(homePct, awayPct)
-  if (weaker >= TOP_THIRD) return 'hot'
-  if (weaker >= LOW_THIRD || isKnockout) return 'cool'
+  const gap = Math.abs(homePct - awayPct)
+  const avg = (homePct + awayPct) / 2
+
+  if (avg >= HOT_AVG && gap <= HOT_GAP) return 'hot'
+  if (isKnockout) return 'cool'
+  if (avg >= COOL_AVG && gap <= COOL_GAP) return 'cool'
   return 'plain'
 }
