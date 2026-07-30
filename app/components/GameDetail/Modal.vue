@@ -6,7 +6,7 @@
     TEAM_ESPN_ID,
     TEAM_ABBREV,
     ALL_STAR_TEAMS,
-  } from '~/composables/useMyTeam'
+  } from '~/composables/useTeamTheme'
   import { useTimezone } from '~/composables/useTimezone'
   import { useConferenceBadges } from '~/composables/useStandings'
   import {
@@ -1424,8 +1424,9 @@
     opacity: 0.85;
   }
 
-  /* Liga MX opponents in Leagues Cup ties get no MyTeam modal (their season
-     data isn't sourced) — render as plain static text, no hover affordance. */
+  /* Liga MX opponents in Leagues Cup ties get no TeamDetail modal (their
+     season data isn't sourced) — render as plain static text, no hover
+     affordance. */
   .header-btn-static {
     cursor: default;
   }

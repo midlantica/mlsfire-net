@@ -1,14 +1,14 @@
 <script setup lang="ts">
   import {
-    useMyTeam,
+    useTeamTheme,
     TEAM_LIST,
     TEAM_SHORT_NAME,
     TEAM_ABBREV,
-  } from '~/composables/useMyTeam'
+  } from '~/composables/useTeamTheme'
 
   const emit = defineEmits<{ 'open-modal': [] }>()
 
-  const { selectedTeam, logoUrl, selectTeam } = useMyTeam()
+  const { selectedTeam, logoUrl, selectTeam } = useTeamTheme()
 
   const open = ref(false)
   const wrapRef = ref<HTMLElement | null>(null)

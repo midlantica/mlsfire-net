@@ -1,12 +1,12 @@
 <script setup lang="ts">
-  import { useMyTeam } from '~/composables/useMyTeam'
+  import { useTeamTheme } from '~/composables/useTeamTheme'
 
   const emit = defineEmits<{
     'go-home': []
     'open-team-modal': []
   }>()
 
-  const { selectedTeam } = useMyTeam()
+  const { selectedTeam } = useTeamTheme()
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import type { ConferenceStandings } from '~/composables/useStandings'
   import { getTeamColor } from '~/composables/useTeamColors'
-  import { TEAM_LOGO } from '~/composables/useMyTeam'
+  import { TEAM_LOGO } from '~/composables/useTeamTheme'
 
   defineProps<{ conference: ConferenceStandings }>()
   const emit = defineEmits<{ 'select-team': [team: string] }>()

@@ -2,7 +2,7 @@
   import { transformMatches, type Match } from '~/composables/useScores'
   import { useMatchView } from '~/composables/useMatchView'
   import { useStandings } from '~/composables/useStandings'
-  import { TEAM_LIST } from '~/composables/useMyTeam'
+  import { TEAM_LIST } from '~/composables/useTeamTheme'
   import {
     getCompetition,
     getRoundInfo,
@@ -511,7 +511,7 @@
         :match="gameDetailMatch"
         @close="closeGameDetail"
       />
-      <MyTeamModal
+      <TeamDetailModal
         :open="clubOpen"
         :view-team="clubTeam"
         @close="clubOpen = false"

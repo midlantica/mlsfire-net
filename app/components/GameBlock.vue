@@ -2,7 +2,7 @@
   import type { Match } from '../composables/useScores'
   import { useTimezone } from '../composables/useTimezone'
   import { useConferenceBadges } from '../composables/useStandings'
-  import { TEAM_SHORT_NAME } from '../composables/useMyTeam'
+  import { TEAM_SHORT_NAME } from '../composables/useTeamTheme'
   import {
     getRoundInfo,
     getCompetition,

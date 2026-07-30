@@ -107,7 +107,7 @@
     trackPageview('/game')
   }
 
-  // Called from MyTeamModal when a game card is clicked.
+  // Called from TeamDetailModal when a game card is clicked.
   // We close the team modal first, then defer opening the game detail to the
   // next tick so the click event that triggered this doesn't bubble through
   // to the new GameDetailModal backdrop and immediately close it.
@@ -559,9 +559,9 @@
       <AppFooter :show-score-legend="mainTab === 'matches'" />
     </div>
 
-    <!-- ── My Team Modal (client-only) ──────────────────────────────────── -->
+    <!-- ── Team Detail Modal (client-only) ──────────────────────────────── -->
     <ClientOnly>
-      <MyTeamModal
+      <TeamDetailModal
         :open="teamModalOpen"
         :view-team="viewTeam"
         @close="closeAllModals"
@@ -571,7 +571,7 @@
       />
     </ClientOnly>
 
-    <!-- ── Game Detail Modal (client-only) ──────────────────────────────── -->
+    <!-- ── Match Detail Modal (client-only) ──────────────────────────────── -->
     <ClientOnly>
       <GameDetailModal
         :open="gameDetailOpen"

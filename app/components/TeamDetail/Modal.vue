@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { wcagContrast } from 'culori'
   import {
-    useMyTeam,
+    useTeamTheme,
     TEAM_SHORT_NAME,
     TEAM_LOGO,
     TEAM_CONFERENCE,
@@ -9,7 +9,7 @@
     TEAM_VENUE,
     TEAM_VENUE_SHORT,
     buildPalette,
-  } from '~/composables/useMyTeam'
+  } from '~/composables/useTeamTheme'
   import { TEAM_COLORS, TEAM_COLOR_PAIRS } from '~/composables/useTeamColors'
   import type { Match } from '~/composables/useScores'
   import { calcQuality, calcBadge } from '~/composables/useScores'
@@ -30,7 +30,7 @@
     'open-game-detail': [match: Match]
   }>()
 
-  const { selectedTeam } = useMyTeam()
+  const { selectedTeam } = useTeamTheme()
 
   const displayTeam = computed(() => props.viewTeam ?? selectedTeam.value)
 
@@ -769,7 +769,7 @@
           <div class="modal-body">
             <Transition :name="`tab-slide-${slideDir}`" mode="out-in">
               <div :key="activeTab" class="tab-pane">
-                <MyTeamScheduleTab
+                <TeamDetailScheduleTab
                   v-if="activeTab === 'schedule'"
                   :schedule-loading="scheduleLoading"
                   :schedule-error="scheduleError"
@@ -784,13 +784,13 @@
                   @navigate-fixtures="setTab('fixtures')"
                 />
 
-                <MyTeamLeadersTab
+                <TeamDetailLeadersTab
                   v-else-if="activeTab === 'leaders'"
                   :loading="teamDetailLoading"
                   :error="teamDetailError"
                   :sorted-leaders="sortedLeaders"
                 />
-                <MyTeamLineupsTab
+                <TeamDetailLineupsTab
                   v-else-if="activeTab === 'lineups'"
                   :loading="teamDetailLoading"
                   :fallback-loading="fallbackSquadLoading"
@@ -800,7 +800,7 @@
                   :sorted-fallback-squad="sortedFallbackSquad"
                   :fallback-squad-date-label="fallbackSquadDateLabel"
                 />
-                <MyTeamFixturesTab
+                <TeamDetailFixturesTab
                   v-else-if="activeTab === 'fixtures'"
                   :loading="scheduleLoading"
                   :error="scheduleError"

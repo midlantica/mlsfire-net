@@ -57,7 +57,7 @@ body {
   --color-text-accent: var(--color-theme-400);
 
   /* ── Modal typography ──────────────────────────────────────────────────── */
-  --modal-copy-size: 1rem; /* table body copy in GameDetailModal & MyTeamModal */
+  --modal-copy-size: 1rem; /* table body copy in GameDetailModal & TeamDetailModal */
 
   /* ── Typography ────────────────────────────────────────────────────────── */
   --font-condensed: 'Barlow Condensed', 'Arial Narrow', sans-serif;

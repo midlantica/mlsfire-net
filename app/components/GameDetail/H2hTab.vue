@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import type { H2HGame } from '~/composables/useMatchDetail'
-  import { TEAM_LOGO } from '~/composables/useMyTeam'
+  import { TEAM_LOGO } from '~/composables/useTeamTheme'
 
   defineProps<{
     h2h: H2HGame[]

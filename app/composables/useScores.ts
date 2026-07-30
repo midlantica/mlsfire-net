@@ -1,6 +1,6 @@
 import { $fetch } from 'ofetch'
 import { LIGAMX_LOGO } from '~/constants/ligamx'
-import { ALL_STAR_TEAMS, TEAM_LOGO } from './useMyTeam'
+import { ALL_STAR_TEAMS, TEAM_LOGO } from './useTeamTheme'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface MatchStatus {

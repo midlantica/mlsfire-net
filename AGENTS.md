@@ -54,7 +54,7 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 - `LineupsTab.vue` — lineups/rosters
 - `H2hTab.vue` — head-to-head history
 
-### MyTeam/ folder (`app/components/MyTeam/`)
+### TeamDetail/ folder (`app/components/TeamDetail/`)
 
 - `Modal.vue` — orchestrator; all data fetching/composables live here; passes typed props to tabs
 - `ScheduleTab.vue` — recent results + next game; owns its own GameBlock grid/deep styles
@@ -64,9 +64,9 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 
 ### Team metadata
 
-- `TEAM_LOGO` — team logo URLs (in `useMyTeam.ts`)
+- `TEAM_LOGO` — team logo URLs (in `useTeamTheme.ts`)
 - `TEAM_SHORT_NAME` — 3–4 char abbreviations used inside modals (in `GameDetail/Modal.vue`)
-- `useMyTeam.ts` has its own `TEAM_SHORT_NAME` for the My Team modal — intentionally separate (different display lengths).
+- `useTeamTheme.ts` has its own `TEAM_SHORT_NAME` for the TeamDetail modal — intentionally separate (different display lengths).
 
 ## Commands
 

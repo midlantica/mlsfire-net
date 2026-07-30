@@ -17,7 +17,7 @@ A fast, clean MLS Fire app built with **Nuxt 4** and deployed on **Netlify**. Li
   - Player leaders
   - Lineups / rosters
   - Head-to-head history
-- **My Team Modal** — Pick your team and get a dedicated view with:
+- **Team Detail Modal** — Pick your team and get a dedicated view with:
   - Schedule (past results + upcoming fixtures)
   - Team stat leaders
   - Roster / lineups
@@ -60,7 +60,7 @@ app/
 │   ├── GameDetailH2hTab.vue       # Head-to-head history tab
 │   ├── HiatusBanner.vue           # FIFA World Cup 2026 hiatus notice
 │   ├── MatchCard.vue              # Compact match card for scores wall
-│   ├── MyTeamModal.vue            # Team detail modal (schedule/leaders/fixtures)
+│   ├── TeamDetailModal.vue        # Team detail modal (schedule/leaders/fixtures)
 │   ├── ScoresSection.vue          # Main scores wall
 │   ├── StandingsTable.vue         # Conference standings table
 │   ├── StatsSection.vue           # League stat leaders
@@ -71,7 +71,7 @@ app/
 ├── composables/
 │   ├── useMatchDetail.ts    # Match detail data + odds helpers
 │   ├── useMatchView.ts      # Match display helpers
-│   ├── useMyTeam.ts         # Team metadata, logos, palette builder
+│   ├── useTeamTheme.ts      # Team metadata, logos, palette builder
 │   ├── useScores.ts         # Scores data + week management
 │   ├── useStandings.ts      # Standings data
 │   ├── useStats.ts          # League stats data

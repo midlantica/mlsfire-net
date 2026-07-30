@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { TEAM_LOGO } from '~/composables/useMyTeam'
+  import { TEAM_LOGO } from '~/composables/useTeamTheme'
   import {
     LIGAMX_LOGO,
     LIGAMX_SHORT_NAME,

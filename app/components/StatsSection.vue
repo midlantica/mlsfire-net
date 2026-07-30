@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { useStats } from '~/composables/useStats'
-  import { TEAM_LOGO } from '~/composables/useMyTeam'
+  import { TEAM_LOGO } from '~/composables/useTeamTheme'
   import { TEAM_COLORS } from '~/composables/useTeamColors'
 
   const emit = defineEmits<{ 'select-team': [team: string] }>()

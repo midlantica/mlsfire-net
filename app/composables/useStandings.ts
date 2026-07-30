@@ -1,4 +1,4 @@
-import { TEAM_CONFERENCE } from '~/composables/useMyTeam'
+import { TEAM_CONFERENCE } from '~/composables/useTeamTheme'
 import { normalizeTeamName } from '~/composables/useScores'
 
 export interface StandingEntry {

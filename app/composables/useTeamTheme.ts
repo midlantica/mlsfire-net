@@ -1,5 +1,5 @@
 /**
- * useMyTeam — "My Team" selection + site-wide color theme
+ * useTeamTheme — "My Team" selection + site-wide color theme
  *
  * Strategy:
  *   • The user picks a team from a dropdown.
@@ -367,14 +367,14 @@ export const TEAM_VENUE_SHORT: Record<string, string> = {
 }
 
 // ── Composable ────────────────────────────────────────────────────────────────
-const MY_TEAM_KEY = 'mls-my-team'
+const FAVORITE_TEAM_KEY = 'mls-my-team'
 
-export function useMyTeam() {
-  const selectedTeam = useState<string | null>('myTeam', () => null)
+export function useTeamTheme() {
+  const selectedTeam = useState<string | null>('favoriteTeam', () => null)
 
   // Restore from localStorage on client mount
   onMounted(() => {
-    const saved = localStorage.getItem(MY_TEAM_KEY)
+    const saved = localStorage.getItem(FAVORITE_TEAM_KEY)
     if (saved && TEAM_LOGO[saved]) {
       selectedTeam.value = saved
       const pair = TEAM_COLOR_PAIRS[saved]
@@ -387,13 +387,13 @@ export function useMyTeam() {
   function selectTeam(name: string | null) {
     selectedTeam.value = name
     if (name) {
-      localStorage.setItem(MY_TEAM_KEY, name)
+      localStorage.setItem(FAVORITE_TEAM_KEY, name)
       const pair = TEAM_COLOR_PAIRS[name]
       const primary = pair?.primary ?? '#6b7280'
       const secondary = pair?.secondary
       applyTheme(buildPalette(primary, secondary), primary, secondary)
     } else {
-      localStorage.removeItem(MY_TEAM_KEY)
+      localStorage.removeItem(FAVORITE_TEAM_KEY)
       clearTheme()
     }
   }

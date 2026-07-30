@@ -1,5 +1,5 @@
 /* ── Modal open: hide page scrollbar behind the modal ────────────────────── */
-/* When MyTeamModal is open, we add .modal-open to <html> to prevent the page
+/* When TeamDetailModal is open, we add .modal-open to <html> to prevent the page
    scrollbar from showing (and inheriting the team's bright color). Using
    !important ensures this wins over any other overflow rules. */
 html.modal-open {
