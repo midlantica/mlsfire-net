@@ -24,12 +24,24 @@ const SCANNER_PATH =
 const SCANNER_UA =
   /(?:zgrab|masscan|nmap|censys|nuclei|sqlmap|dirbuster|gobuster|wpscan|nikto|acunetix|semrush|ahrefs|mj12|dotbot|blexbot|dataforseo|bytespider|petalbot|serpstat|seekport|zoominfo|internet-measurement)/i
 
+// Generic scripted HTTP clients and headless browser automation — no
+// legitimate visitor's browser sends these. Deliberately excludes anything
+// that could be a wanted crawler: search engines (bot|crawl|spider), social
+// link-preview fetchers (facebookexternalhit, preview, feed, rss), uptime
+// monitors (monitor|uptime|pingdom), and our own lighthouse audits.
+const SCRIPTED_CLIENT_UA =
+  /(?:^curl\/|^wget\/|python-requests|python-urllib|^python\/|java\/|go-http-client|okhttp|libwww-perl|^ruby|axios\/|node-fetch|headlesschrome|phantomjs|puppeteer|playwright|selenium)/i
+
 export default async function handler(request: Request, context: EdgeContext) {
   try {
     const { pathname } = new URL(request.url)
     const ua = request.headers.get('user-agent') ?? ''
 
-    if (SCANNER_PATH.test(pathname) || SCANNER_UA.test(ua)) {
+    if (
+      SCANNER_PATH.test(pathname) ||
+      SCANNER_UA.test(ua) ||
+      SCRIPTED_CLIENT_UA.test(ua)
+    ) {
       // 410 (rather than 404) tells well-built crawlers to stop retrying.
       // Cached at the edge so repeat probes cost nothing.
       return new Response('410 Gone\n', {
