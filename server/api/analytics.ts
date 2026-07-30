@@ -54,15 +54,23 @@ export default defineEventHandler(async (_event) => {
       )
 
       const humanViews = humanEntries.reduce((sum, [, v]) => sum + v, 0)
-      const rawPageViews = raw.pageViews ?? 0
+      const recordedPageViews = raw.pageViews ?? 0
 
       // Days recorded before topPages existed can't be decomposed — fall
       // back to the stored total rather than reporting zero.
-      const pageViews = entries.length > 0 ? humanViews : rawPageViews
+      const pageViews = entries.length > 0 ? humanViews : recordedPageViews
 
       const botViews =
         legacyBotEntries.reduce((sum, [, v]) => sum + v, 0) +
         (raw.botViews ?? 0)
+
+      // Once bot filtering is active, `raw.pageViews` only counts human
+      // traffic (bots are tallied separately in `raw.botViews`), so it
+      // understates true raw traffic on its own. Legacy days recorded
+      // before filtering existed already included bot hits in
+      // `raw.pageViews` and have no separate `botViews` field, so adding
+      // it back in (0 for legacy days) gives the true total either way.
+      const rawPageViews = recordedPageViews + (raw.botViews ?? 0)
 
       const botPages = [
         ...legacyBotEntries,
