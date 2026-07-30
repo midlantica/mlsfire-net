@@ -1,19 +1,34 @@
 <script setup lang="ts">
   // Simple analytics admin dashboard — /admin
 
+  interface PageCount {
+    path: string
+    views: number
+  }
+
   interface DaySummary {
     date: string
     pageViews: number
+    rawPageViews: number
+    botViews: number
     uniqueVisitors: number
     sessions: number
-    topPages: { path: string; views: number }[]
+    topPages: PageCount[]
+    botPages: PageCount[]
     hourly: { hour: string; views: number }[]
   }
 
   interface AnalyticsData {
     days: DaySummary[]
-    totals: { pageViews: number; uniqueVisitors: number; sessions: number }
-    topPages: { path: string; views: number }[]
+    totals: {
+      pageViews: number
+      rawPageViews: number
+      botViews: number
+      uniqueVisitors: number
+      sessions: number
+    }
+    topPages: PageCount[]
+    botPages: PageCount[]
     message?: string
   }
 
@@ -144,6 +159,48 @@
     return KNOWN_ROUTES.find((r) => r.path === path)?.label ?? path
   }
 
+  // ── Bot traffic ──
+  // Scoped to the selected day when one is open, otherwise the 30-day roll-up.
+  const botScope = computed(() => {
+    const day = selectedDay.value
+    if (day) {
+      return {
+        botViews: day.botViews,
+        rawPageViews: day.rawPageViews,
+        pageViews: day.pageViews,
+        botPages: day.botPages,
+      }
+    }
+    const t = data.value?.totals
+    return {
+      botViews: t?.botViews ?? 0,
+      rawPageViews: t?.rawPageViews ?? 0,
+      pageViews: t?.pageViews ?? 0,
+      botPages: data.value?.botPages ?? [],
+    }
+  })
+
+  const botShare = computed(() => {
+    const { botViews, rawPageViews } = botScope.value
+    if (!rawPageViews) return 0
+    return Math.round((botViews / rawPageViews) * 100)
+  })
+
+  const maxBotPage = computed(() =>
+    Math.max(1, ...botScope.value.botPages.map((p) => p.views))
+  )
+
+  // Short human-readable reason each path was classified as bot traffic.
+  function botReason(path: string) {
+    const p = path.toLowerCase()
+    if (/\.(php\d?|asp|aspx|jsp|cgi)/.test(p)) return 'PHP / CGI probe'
+    if (p.includes('wp-') || p.includes('wordpress')) return 'WordPress probe'
+    if (p.includes('.env') || p.includes('.git')) return 'credential scan'
+    if (p.includes('sitemap') || p.includes('robots')) return 'crawler file'
+    if (p.includes('admin') || p.includes('login')) return 'admin probe'
+    return 'not an app route'
+  }
+
   useHead({ title: 'Admin — MLS Analytics' })
 </script>
 
@@ -170,7 +227,17 @@
           <div class="stat-value">
             {{ data.totals.pageViews.toLocaleString() }}
           </div>
-          <div class="stat-sub">last 30 days</div>
+          <div class="stat-sub">humans · last 30 days</div>
+        </div>
+        <div class="stat-card stat-card--bot">
+          <div class="stat-label">Bots Filtered</div>
+          <div class="stat-value">
+            {{ data.totals.botViews.toLocaleString() }}
+          </div>
+          <div class="stat-sub">
+            {{ botShare }}% of {{ data.totals.rawPageViews.toLocaleString() }}
+            raw hits
+          </div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Unique Visitors</div>
@@ -233,6 +300,13 @@
             <span class="today-num">{{ todayStats.sessions }}</span>
             <span class="today-key">sessions</span>
           </div>
+          <template v-if="todayStats.botViews > 0">
+            <div class="today-divider" />
+            <div class="today-stat today-stat--bot">
+              <span class="today-num">{{ todayStats.botViews }}</span>
+              <span class="today-key">bots filtered</span>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -248,6 +322,7 @@
                   <th>Views</th>
                   <th>Visitors</th>
                   <th>Sessions</th>
+                  <th class="th-bot">Bots</th>
                   <th></th>
                 </tr>
               </thead>
@@ -265,6 +340,9 @@
                   <td>{{ day.pageViews.toLocaleString() }}</td>
                   <td>{{ day.uniqueVisitors.toLocaleString() }}</td>
                   <td>{{ day.sessions.toLocaleString() }}</td>
+                  <td class="td-bot">
+                    {{ day.botViews ? day.botViews.toLocaleString() : '—' }}
+                  </td>
                   <td class="td-arrow">
                     {{ selectedDay?.date === day.date ? '▲' : '▼' }}
                   </td>
@@ -327,6 +405,76 @@
             into <code>/</code> above, so the rename preserves all prior counts.
           </p>
         </div>
+      </div>
+
+      <!-- ── Bot traffic filtered ── -->
+      <div class="admin-section admin-section--bot">
+        <h2 class="section-title">
+          🤖 Bot Traffic Filtered
+          <span v-if="selectedDay" class="section-sub"
+            >— {{ fmtDate(selectedDay.date) }}</span
+          >
+          <span v-else class="section-sub">— 30 days</span>
+        </h2>
+
+        <div class="bot-summary">
+          <div class="bot-summary-stat">
+            <span class="bot-num bot-num--bad">{{
+              botScope.botViews.toLocaleString()
+            }}</span>
+            <span class="bot-key">bot hits</span>
+          </div>
+          <div class="bot-summary-stat">
+            <span class="bot-num bot-num--good">{{
+              botScope.pageViews.toLocaleString()
+            }}</span>
+            <span class="bot-key">human views</span>
+          </div>
+          <div class="bot-summary-stat">
+            <span class="bot-num">{{ botShare }}%</span>
+            <span class="bot-key">of raw traffic</span>
+          </div>
+        </div>
+
+        <div class="bot-ratio" :title="`${botShare}% bot traffic`">
+          <div class="bot-ratio-bot" :style="{ width: `${botShare}%` }" />
+        </div>
+
+        <template v-if="botScope.botPages.length">
+          <h3 class="routes-title">Top Filtered Paths</h3>
+          <div class="bar-list">
+            <div
+              v-for="page in botScope.botPages"
+              :key="page.path"
+              class="bar-row"
+            >
+              <div class="bar-label-wrap">
+                <span class="bar-path bar-path--bot">{{ page.path }}</span>
+                <span class="bar-route-label">{{ botReason(page.path) }}</span>
+              </div>
+              <div class="bar-track">
+                <div
+                  class="bar-fill bar-fill--bot"
+                  :style="{ width: barWidth(page.views, maxBotPage) }"
+                />
+              </div>
+              <div class="bar-val">{{ page.views }}</div>
+            </div>
+          </div>
+        </template>
+        <p v-else class="routes-note">
+          No bot traffic recorded for this range.
+        </p>
+
+        <p class="routes-note">
+          These hits are excluded from every other number on this page. Scanner
+          paths now return <code>410 Gone</code> at the CDN edge, so their
+          counts stop growing — historical totals stay frozen here for
+          reference. <strong>Unique visitors</strong> and
+          <strong>sessions</strong> from before filtering existed are still
+          inflated: they're keyed by hashed IP with no path attached, so they
+          can't be separated retroactively.
+        </p>
       </div>
 
       <!-- ── Hourly breakdown for selected day ── -->
@@ -421,7 +569,7 @@
   /* ── Stat cards ── */
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
   }
@@ -464,6 +612,20 @@
     font-size: 0.75rem;
     color: #475569;
     margin-top: 0.2rem;
+  }
+
+  .stat-card--bot {
+    border-color: oklch(0.42 0.07 72);
+    background: oklch(0.28 0.03 72 / 0.55);
+  }
+
+  .stat-card--bot .stat-value {
+    color: oklch(0.78 0.14 72);
+  }
+
+  .stat-card--bot .stat-label,
+  .stat-card--bot .stat-sub {
+    color: oklch(0.62 0.06 72);
   }
 
   /* ── Today strip ── */
@@ -526,6 +688,14 @@
   .today-trend.down {
     color: #f87171;
     background: rgba(248, 113, 113, 0.1);
+  }
+
+  .today-stat--bot .today-num {
+    color: oklch(0.78 0.14 72);
+  }
+
+  .today-stat--bot .today-key {
+    color: oklch(0.6 0.06 72);
   }
 
   .today-divider {
@@ -627,6 +797,15 @@
     text-align: right;
   }
 
+  .th-bot,
+  .td-bot {
+    color: oklch(0.62 0.07 72);
+  }
+
+  .data-table tbody tr:hover .td-bot {
+    color: oklch(0.78 0.14 72);
+  }
+
   /* ── Bar chart ── */
   .bar-list {
     display: flex;
@@ -692,6 +871,68 @@
 
   .bar-val--zero {
     color: #334155;
+  }
+
+  /* ── Bot traffic ── */
+  .admin-section--bot {
+    border-color: oklch(0.38 0.06 72);
+  }
+
+  .bar-path--bot {
+    color: oklch(0.74 0.1 72);
+  }
+
+  .bar-fill--bot {
+    background: oklch(0.68 0.15 62);
+  }
+
+  .bot-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+
+  .bot-summary-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+
+  .bot-num {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    line-height: 1;
+  }
+
+  .bot-num--bad {
+    color: oklch(0.78 0.14 72);
+  }
+
+  .bot-num--good {
+    color: oklch(0.82 0.17 145);
+  }
+
+  .bot-key {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .bot-ratio {
+    display: flex;
+    height: 0.5rem;
+    border-radius: 2px;
+    overflow: hidden;
+    background: oklch(0.82 0.17 145);
+    margin-bottom: 1rem;
+  }
+
+  .bot-ratio-bot {
+    height: 100%;
+    background: oklch(0.68 0.15 62);
+    transition: width 0.3s ease;
   }
 
   /* ── Routes reference ── */
