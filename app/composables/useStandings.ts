@@ -122,7 +122,15 @@ export function useConferenceBadges() {
   const { conferences } = useStandings()
   const { strength, load: loadClubStrength } = useClubStrength()
 
-  loadClubStrength()
+  // Club-strength's fetch is fire-and-forget (never awaited by any parent
+  // async setup), so calling it during SSR races the payload serialization:
+  // Nitro finishes rendering and freezes `loading: true` / empty `strength`
+  // into the client payload before the fetch resolves, and the client then
+  // permanently skips its own fetch (loaded/loading guard sees a stale
+  // `true`). Restricting the call to the client sidesteps that race — SSR
+  // just renders without Liga MX badges/heat, and the client fetches them
+  // fresh right after hydration.
+  if (import.meta.client) loadClubStrength()
 
   const badgeByTeam = computed(() => {
     const map: Record<string, ConferenceBadge> = {}
