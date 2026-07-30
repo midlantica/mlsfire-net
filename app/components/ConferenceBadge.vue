@@ -15,7 +15,7 @@
 
   const tooltip = computed(() => {
     if (!props.badge) return ''
-    if (isLigaMx.value) return `Liga MX ${props.badge.rank}`
+    if (isLigaMx.value) return `#${props.badge.rank} Liga MX`
     return `#${props.badge.rank} ${props.badge.letter === 'W' ? 'Western' : 'Eastern'} Con`
   })
 
