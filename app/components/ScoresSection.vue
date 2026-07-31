@@ -238,6 +238,12 @@
         >
           <img src="/info-rounded.svg" alt="" class="lc-info-icon" />
         </button>
+        <img
+          src="/mls-logo.svg"
+          alt="MLS"
+          class="lc-comp-logo lc-mls-logo lc-comp-logo-first"
+        />
+        <img src="/liga-mx-logo.svg" alt="Liga MX" class="lc-comp-logo" />
       </div>
 
       <!-- Day heading (collapsible) -->
@@ -401,6 +407,19 @@
   .lc-logo {
     height: 1.75rem;
     width: auto;
+  }
+
+  .lc-comp-logo {
+    height: 1.5rem;
+    width: auto;
+  }
+
+  .lc-comp-logo-first {
+    margin-left: 1rem;
+  }
+
+  .lc-mls-logo {
+    filter: brightness(0) invert(1);
   }
 
   .lc-info-btn {

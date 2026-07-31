@@ -30,11 +30,23 @@
             <CloseIcon />
           </button>
 
-          <img
-            src="/leagues-cup-logo.svg"
-            alt="Leagues Cup"
-            class="lc-info-logo"
-          />
+          <div class="lc-info-logo-row">
+            <img
+              src="/leagues-cup-logo.svg"
+              alt="Leagues Cup"
+              class="lc-info-logo"
+            />
+            <img
+              src="/mls-logo.svg"
+              alt="MLS"
+              class="lc-info-comp-logo lc-info-mls-logo"
+            />
+            <img
+              src="/liga-mx-logo.svg"
+              alt="Liga MX"
+              class="lc-info-comp-logo"
+            />
+          </div>
 
           <h2 id="lc-info-title" class="sr-only">About Leagues Cup</h2>
 
@@ -150,10 +162,26 @@
     color: oklab(100% 0 0);
   }
 
+  .lc-info-logo-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
   .lc-info-logo {
     height: 2.25rem;
     width: auto;
-    margin-bottom: 1rem;
+  }
+
+  .lc-info-comp-logo {
+    height: 1.75rem;
+    width: auto;
+    margin-top: -0.1rem;
+  }
+
+  .lc-info-mls-logo {
+    filter: brightness(0) invert(1);
   }
 
   .lc-info-body {
