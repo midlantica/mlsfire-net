@@ -70,6 +70,31 @@ function extractId(refUrl: string, segment: string): string | null {
   return match?.[1] ?? null
 }
 
+// ESPN moves an athlete's "current team" to the All-Star team ID as soon as
+// they play in the MLS All-Star Game, which overwrites their real club in
+// both the leaders feed and the athlete profile's `team` field. When we see
+// this ID, we fall back to the athlete's event log to find their real club.
+const ALL_STAR_TEAM_ID = '9817'
+
+// Manually-curated headshots for players whose ESPN/Wikipedia photos are
+// missing or low quality. These take priority over ESPN/Wikipedia. If ESPN
+// starts serving a real headshot for one of these players, a console
+// message is logged (see resolveLeaders loop below) so it can be flagged.
+const MANUAL_HEADSHOTS: Record<string, string> = {
+  'Bryan Ramirez': '/player-headshots/Bryan-Ramirez.jpg',
+  'Carlos Garcés': '/player-headshots/Carlos-Garcés.jpg',
+  'Felipe Andrade': '/player-headshots/Felipe-Andrade.jpg',
+  'Guilherme Augusto': '/player-headshots/Guilherme-Augusto.jpg',
+  'Jimer Fory': '/player-headshots/Jimer-Fory.jpg',
+  'Joaquín Pereyra': '/player-headshots/Joaquín-Pereyra.jpg',
+  'Manu Duah': '/player-headshots/Manu-Duah.jpg',
+  'Marcus Ingvartsen': '/player-headshots/Marcus-Ingvartsen.jpg',
+  'Maxwell Woledzi': '/player-headshots/Maxwell-Woledzi.jpg',
+  'Nicolás Fernández': '/player-headshots/Nicolás-Fernández.jpg',
+  'Pep Biel': '/player-headshots/Pep-Biel.jpg',
+  'Prince Owusu': '/player-headshots/Prince-Owuso.jpg',
+}
+
 export default defineEventHandler(async () => {
   // Serve from cache if fresh
   if (cache && Date.now() - cacheTime < CACHE_TTL) {
@@ -154,14 +179,43 @@ export default defineEventHandler(async () => {
     }
   }
 
+  // When an athlete's team resolves to the All-Star team (or an otherwise
+  // unrecognized ID), walk their event log backwards to find the last game
+  // played for a real club, and use that team instead.
+  async function fetchClubTeamId(athleteId: string): Promise<string | null> {
+    try {
+      const url = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/usa.1/athletes/${athleteId}/eventlog?lang=en&region=us`
+      const data = await $fetch<Record<string, unknown>>(url)
+      const items =
+        ((data.events as Record<string, unknown> | undefined)?.items as Array<
+          Record<string, unknown>
+        >) ?? []
+      for (let i = items.length - 1; i >= 0; i--) {
+        const teamId = items[i]?.teamId as string | undefined
+
+        if (
+          teamId &&
+          teamId !== ALL_STAR_TEAM_ID &&
+          ESPN_TEAM_ID_TO_NAME[teamId]
+        ) {
+          return teamId
+        }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
   const athleteCache = new Map<
     string,
-    { displayName: string; headshot: string }
+    { displayName: string; headshot: string; teamId: string }
   >()
 
   await Promise.all(
     Array.from(allRefs).map(async (ref) => {
       const baseUrl = toBaseAthleteUrl(ref)
+      const athleteId = extractId(ref, 'athletes') ?? ''
       try {
         const data = await $fetch<Record<string, unknown>>(baseUrl)
         const displayName = (data.displayName as string) ?? 'Unknown'
@@ -174,9 +228,52 @@ export default defineEventHandler(async () => {
           headshot = await fetchWikipediaHeadshot(displayName)
         }
 
-        athleteCache.set(ref, { displayName, headshot })
+        // Manual override always wins for players with missing/poor photos.
+        // Log when ESPN now has its own headshot for one of these players,
+        // so it can be flagged and the override potentially removed.
+        const manualOverride = MANUAL_HEADSHOTS[displayName]
+        if (manualOverride) {
+          if (headshotObj?.href) {
+            console.log(
+              `[stats] ESPN now has a headshot for "${displayName}" ` +
+                `(overridden by MANUAL_HEADSHOTS): ${headshotObj.href as string}`
+            )
+          }
+          headshot = manualOverride
+        }
+
+        // Nothing available from ESPN, Wikipedia, or manual override — flag
+        // it so a headshot can be sourced and added to MANUAL_HEADSHOTS.
+        if (!headshot && displayName && displayName !== 'Unknown') {
+          console.log(
+            `[stats] MISSING HEADSHOT for "${displayName}" — no ESPN, ` +
+              `Wikipedia, or MANUAL_HEADSHOTS image found. Add one to ` +
+              `public/player-headshots/ and MANUAL_HEADSHOTS in stats.ts.`
+          )
+        }
+
+        let teamId =
+          extractId(
+            (data.team as Record<string, unknown> | undefined)?.[
+              '$ref'
+            ] as string,
+            'teams'
+          ) ?? ''
+
+        // Athletes who played in the All-Star Game get their "current team"
+        // overwritten by ESPN — recover their real club from the event log.
+        if ((!teamId || teamId === ALL_STAR_TEAM_ID) && athleteId) {
+          const clubTeamId = await fetchClubTeamId(athleteId)
+          if (clubTeamId) teamId = clubTeamId
+        }
+
+        athleteCache.set(ref, { displayName, headshot, teamId })
       } catch {
-        athleteCache.set(ref, { displayName: 'Unknown', headshot: '' })
+        athleteCache.set(ref, {
+          displayName: 'Unknown',
+          headshot: '',
+          teamId: '',
+        })
       }
     })
   )
@@ -185,10 +282,15 @@ export default defineEventHandler(async () => {
   function resolveLeaders(raw: RawLeader[]): LeaderEntry[] {
     return raw.map((l, i) => {
       const athleteId = extractId(l.athleteRef, 'athletes') ?? ''
-      const teamId = extractId(l.teamRef, 'teams') ?? ''
+      const leaderTeamId = extractId(l.teamRef, 'teams') ?? ''
       const resolved = athleteCache.get(l.athleteRef)
 
-      // Resolve team from the season-specific teamRef in the leaders data
+      // Prefer the athlete-resolved team (which accounts for the All-Star
+      // Game override); fall back to the leaders feed's own teamRef.
+      const teamId =
+        resolved?.teamId && resolved.teamId !== ALL_STAR_TEAM_ID
+          ? resolved.teamId
+          : leaderTeamId
       const team = (teamId && ESPN_TEAM_ID_TO_NAME[teamId]) || 'MLS'
 
       return {
