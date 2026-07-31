@@ -230,7 +230,12 @@
       :class="{ 'lc-day': isLeaguesCupDay(day.matches) }"
     >
       <div v-if="isLeaguesCupDay(day.matches)" class="lc-logo-row">
-        <img src="/leagues-cup-logo.svg" alt="Leagues Cup" class="lc-logo" />
+        <img
+          src="/leagues-cup-logo.svg"
+          alt="Leagues Cup"
+          title="Leagues Cup"
+          class="lc-logo"
+        />
         <button
           class="lc-info-btn"
           aria-label="About Leagues Cup"
@@ -241,9 +246,15 @@
         <img
           src="/mls-logo.svg"
           alt="MLS"
+          title="MLS"
           class="lc-comp-logo lc-mls-logo lc-comp-logo-first"
         />
-        <img src="/liga-mx-logo.svg" alt="Liga MX" class="lc-comp-logo" />
+        <img
+          src="/liga-mx-logo.svg"
+          alt="Liga MX"
+          title="Liga MX"
+          class="lc-comp-logo"
+        />
       </div>
 
       <!-- Day heading (collapsible) -->

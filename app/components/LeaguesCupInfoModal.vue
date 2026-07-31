@@ -34,16 +34,19 @@
             <img
               src="/leagues-cup-logo.svg"
               alt="Leagues Cup"
+              title="Leagues Cup"
               class="lc-info-logo"
             />
             <img
               src="/mls-logo.svg"
               alt="MLS"
+              title="MLS"
               class="lc-info-comp-logo lc-info-mls-logo"
             />
             <img
               src="/liga-mx-logo.svg"
               alt="Liga MX"
+              title="Liga MX"
               class="lc-info-comp-logo"
             />
           </div>
@@ -172,6 +175,7 @@
   .lc-info-logo {
     height: 2.25rem;
     width: auto;
+    margin-right: 1rem;
   }
 
   .lc-info-comp-logo {
