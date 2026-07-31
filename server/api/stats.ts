@@ -83,8 +83,10 @@ const ALL_STAR_TEAM_ID = '9817'
 const MANUAL_HEADSHOTS: Record<string, string> = {
   'Bryan Ramirez': '/player-headshots/Bryan-Ramirez.jpg',
   'Carlos Garcés': '/player-headshots/Carlos-Garcés.jpg',
+  'Édier Ocampo': '/player-headshots/Édier-Ocampo.jpg',
   'Felipe Andrade': '/player-headshots/Felipe-Andrade.jpg',
   'Guilherme Augusto': '/player-headshots/Guilherme-Augusto.jpg',
+  'Hamzat Ojediran': '/player-headshots/Hamzat-Ojediran.jpg',
   'Jimer Fory': '/player-headshots/Jimer-Fory.jpg',
   'Joaquín Pereyra': '/player-headshots/Joaquín-Pereyra.jpg',
   'Manu Duah': '/player-headshots/Manu-Duah.jpg',
