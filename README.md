@@ -140,6 +140,29 @@ Push to your connected Netlify repo and it deploys automatically.
 
 ---
 
+## Score API monitoring and alerts
+
+`netlify/functions/score-health.ts` is a Netlify Scheduled Function that runs every 10 minutes. It requests the deployed `/api/scores?week=this` route and raises an incident only when the API response is unavailable, malformed, or reports an upstream data failure. A valid empty schedule is healthy, so legitimate breaks in play do not alert.
+
+Alerts use Resend for email:
+
+- An email is sent on the first failed check, then at most once every six hours while the incident remains open.
+- A recovery email is sent after the endpoint becomes healthy.
+- Each scheduled check writes an actionable status message to the Netlify Function logs, including a `NEXT STEP` when a check or alert delivery fails.
+
+Set these environment variables in **Netlify → Project configuration → Environment variables** for the production deploy. Do not commit their values.
+
+```text
+SITE_URL=https://mlsfire.net
+RESEND_API_KEY=re_...
+ALERT_EMAIL_FROM=MLS Fire Alerts <alerts@your-verified-domain.com>
+ALERT_EMAIL_TO=you@example.com
+```
+
+`ALERT_EMAIL_FROM` must use a domain verified in Resend. View operational messages in **Netlify → Logs → Functions**; function logs support diagnosis but do not replace the email alert. `.env.example` contains the same variable names for local setup without secrets.
+
+---
+
 ## Data Source
 
 All match data is fetched from ESPN's public (unofficial) API endpoints. No API key is required. The server-side API routes in `server/api/` act as a proxy layer, normalizing the ESPN responses into clean typed shapes consumed by the frontend composables.
