@@ -198,6 +198,54 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>()
 const leaguesCupCache = new Map<string, CacheEntry>()
 
+function datesInRange(from: string, to: string): string[] {
+  const fromDate = new Date(
+    `${from.slice(0, 4)}-${from.slice(4, 6)}-${from.slice(6, 8)}T00:00:00Z`
+  )
+  const toDate = new Date(
+    `${to.slice(0, 4)}-${to.slice(4, 6)}-${to.slice(6, 8)}T00:00:00Z`
+  )
+  const dates: string[] = []
+
+  for (
+    const date = fromDate;
+    date <= toDate;
+    date.setUTCDate(date.getUTCDate() + 1)
+  ) {
+    dates.push(toDateStr(date))
+  }
+
+  return dates
+}
+
+async function fetchScoreboardDays(
+  league: string,
+  from: string,
+  to: string
+): Promise<Array<Record<string, unknown>>> {
+  const results = await Promise.allSettled(
+    datesInRange(from, to).map((date) =>
+      $fetch<Record<string, unknown>>(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${date}`
+      )
+    )
+  )
+  const fulfilled = results.filter(
+    (result): result is PromiseFulfilledResult<Record<string, unknown>> =>
+      result.status === 'fulfilled'
+  )
+
+  if (!fulfilled.length) throw new Error('All ESPN scoreboard requests failed')
+
+  const events = fulfilled.flatMap(
+    (result) =>
+      (result.value.events as Array<Record<string, unknown>> | undefined) ?? []
+  )
+  return [
+    ...new Map(events.map((event) => [event.id as string, event])).values(),
+  ]
+}
+
 /** Fetch a date range from ESPN (via cache when fresh), returning stale/error flags. */
 async function fetchRange(
   from: string,
@@ -220,11 +268,12 @@ async function fetchRange(
     if (now - cached.fetchedAt < ttl) return { data: cached.data }
   }
 
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${from}-${to}`
-
   try {
-    const data = await $fetch<Record<string, unknown>>(url)
-    const events = (data.events as Array<Record<string, unknown>>) ?? []
+    // ESPN's scoreboard currently rejects date-range queries (dates=A-B), but
+    // accepts individual calendar dates. Fetch the week's dates concurrently
+    // and merge them so a failed upstream range cannot look like an empty week.
+    const events = await fetchScoreboardDays('usa.1', from, to)
+    const data: Record<string, unknown> = { events }
     await applyPriorRecords(events)
     cache.set(cacheKey, { data, fetchedAt: now })
     return { data }
@@ -262,10 +311,10 @@ async function fetchLeaguesCupRange(
     }
   }
 
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${from}-${to}`
-
   try {
-    const data = await $fetch<Record<string, unknown>>(url)
+    const data: Record<string, unknown> = {
+      events: await fetchScoreboardDays('concacaf.leagues.cup', from, to),
+    }
     leaguesCupCache.set(cacheKey, { data, fetchedAt: now })
     return { events: (data.events as Array<Record<string, unknown>>) ?? [] }
   } catch {
