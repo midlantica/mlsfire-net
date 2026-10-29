@@ -157,26 +157,28 @@ export default defineEventHandler(async (event) => {
   if (rosterResult.status === 'fulfilled') {
     const raw = rosterResult.value
     const athletes = (raw.athletes as Array<Record<string, unknown>>) ?? []
+    // ESPN has served both position-grouped ({ items: [...] }) and flat athlete lists.
+    const players = athletes.flatMap((entry) =>
+      Array.isArray(entry.items)
+        ? (entry.items as Array<Record<string, unknown>>)
+        : [entry]
+    )
 
-    for (const group of athletes) {
-      const items = (group.items as Array<Record<string, unknown>>) ?? []
-      for (const p of items) {
-        const pos = p.position as Record<string, unknown> | undefined
-        const headshots = p.headshot as Record<string, unknown> | undefined
-        const flag = p.flag as Record<string, unknown> | undefined
+    for (const p of players) {
+      const pos = p.position as Record<string, unknown> | undefined
+      const headshots = p.headshot as Record<string, unknown> | undefined
+      const flag = p.flag as Record<string, unknown> | undefined
 
-        roster.push({
-          id: p.id as string,
-          displayName: p.displayName as string,
-          shortName: p.shortName as string,
-          jersey: (p.jersey as string) ?? '',
-          position:
-            (pos?.abbreviation as string) ?? (pos?.name as string) ?? '',
-          positionName: (pos?.displayName as string) ?? '',
-          nationality: (flag?.alt as string) ?? '',
-          headshot: (headshots?.href as string) ?? '',
-        })
-      }
+      roster.push({
+        id: p.id as string,
+        displayName: p.displayName as string,
+        shortName: p.shortName as string,
+        jersey: (p.jersey as string) ?? '',
+        position: (pos?.abbreviation as string) ?? (pos?.name as string) ?? '',
+        positionName: (pos?.displayName as string) ?? '',
+        nationality: (flag?.alt as string) ?? '',
+        headshot: (headshots?.href as string) ?? '',
+      })
     }
   }
 

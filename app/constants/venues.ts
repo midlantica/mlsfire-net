@@ -101,11 +101,20 @@ export const MLS_STADIUMS: StadiumInfo[] = [
   },
   {
     team: 'Inter Miami CF',
+    venue: 'Nu Stadium',
+    city: 'Miami, FL',
+    capacity: 26_700,
+    image: '/venues/nu-stadium.jpg',
+    bio: "Nu Stadium opened on April 4, 2026 as Inter Miami's permanent home at Miami Freedom Park, near Miami International Airport. Nicknamed 'The House that Messi Built,' the soccer-specific stadium was designed by MANICA Architecture and Arquitectonica and replaced Chase Stadium in Fort Lauderdale, the club's interim home since 2020.",
+  },
+  // Kept so pre-2026 matches (ESPN venue "Chase Stadium" / "DRV PNK Stadium") still resolve; listed after Nu Stadium so team lookups return the current home.
+  {
+    team: 'Inter Miami CF',
     venue: 'Chase Stadium',
     city: 'Fort Lauderdale, FL',
     capacity: 21_550,
     image: '/venues/chase-stadium.jpg',
-    bio: "Chase Stadium has served as Inter Miami's home since the club's 2020 inaugural season and became a global focal point after Lionel Messi joined in 2023. It is planned as an interim home while Miami Freedom Park, the club's permanent stadium, is developed nearby.",
+    bio: "Chase Stadium (originally DRV PNK Stadium) was Inter Miami's interim home from the club's 2020 inaugural season until 2026, and became a global focal point after Lionel Messi joined in 2023. The club moved to its permanent home, Nu Stadium at Miami Freedom Park, in April 2026.",
   },
   {
     team: 'LA Galaxy',
@@ -154,6 +163,15 @@ export const MLS_STADIUMS: StadiumInfo[] = [
     capacity: 54_251,
     image: '/venues/yankee-stadium.jpg',
     bio: 'NYCFC has played its home matches at Yankee Stadium since entering MLS in 2015, an unusual arrangement that requires the pitch to be laid out diagonally across the baseball outfield and infield. The club is developing its own soccer-specific stadium at Willets Point in Queens.',
+  },
+  // NYCFC's secondary home: used for select matches when Yankee Stadium is unavailable.
+  {
+    team: 'New York City FC',
+    venue: 'Citi Field',
+    city: 'Queens, NY',
+    capacity: 41_922,
+    image: '/venues/citi-field.jpg',
+    bio: "Home of MLB's New York Mets since 2009, Citi Field in Queens serves as NYCFC's part-time home, hosting a handful of matches each season when Yankee Stadium is unavailable. It sits next to Willets Point, where the club's own soccer-specific stadium, Etihad Park, is being built.",
   },
   {
     team: 'Orlando City SC',
@@ -270,6 +288,7 @@ const VENUE_ALIASES: Record<string, string> = {
   'sporting park': "Children's Mercy Park",
   'home depot center': 'Dignity Health Sports Park',
   'stubhub center': 'Dignity Health Sports Park',
+  'drv pnk stadium': 'Chase Stadium',
 }
 
 function normalize(name: string): string {

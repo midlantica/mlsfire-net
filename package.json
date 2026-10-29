@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:data": "tsx scripts/check-data.mts"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.10",
@@ -23,6 +24,7 @@
     "@types/node": "^26.1.2",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }
 }

@@ -14,7 +14,40 @@
  * "prior" record into whichever narrower set of events we're returning.
  */
 
+import { SEASON_YEAR } from '../../app/constants/mls'
+
 const SEASON_TTL_MS = 60 * 60_000 // 1 hour
+
+/**
+ * ESPN's scoreboard rejects date-range queries (dates=A-B) with a 400, but
+ * accepts whole months (dates=YYYYMM). Fetch all 12 months concurrently and
+ * merge. Any month that still fails after one retry fails the whole fetch so
+ * a partial season is never cached (callers fall back to stale cache).
+ */
+async function fetchSeasonByMonth(
+  league: string
+): Promise<Array<Record<string, unknown>>> {
+  const months = Array.from(
+    { length: 12 },
+    (_, i) => `${SEASON_YEAR}${String(i + 1).padStart(2, '0')}`
+  )
+  const fetchMonth = (month: string) =>
+    $fetch<Record<string, unknown>>(
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${month}&limit=1000`,
+      { retry: 1 }
+    )
+  const pages = await Promise.all(months.map(fetchMonth))
+  const events = pages.flatMap(
+    (page) => (page.events as Array<Record<string, unknown>> | undefined) ?? []
+  )
+  return [
+    ...new Map(events.map((evt) => [evt.id as string, evt])).values(),
+  ].sort(
+    (a, b) =>
+      new Date(a.date as string).getTime() -
+      new Date(b.date as string).getTime()
+  )
+}
 
 interface SeasonBlobCache {
   events: Array<Record<string, unknown>>
@@ -31,12 +64,8 @@ export async function fetchSeasonBlob(): Promise<
     return seasonBlobCache.events
   }
 
-  const url =
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=20260101-20261231&limit=1000'
-
   try {
-    const data = await $fetch<Record<string, unknown>>(url)
-    const events = (data.events as Array<Record<string, unknown>>) ?? []
+    const events = await fetchSeasonByMonth('usa.1')
     seasonBlobCache = { events, fetchedAt: now }
     return events
   } catch (err) {
@@ -69,12 +98,8 @@ export async function fetchLeaguesCupSeasonBlob(): Promise<
     return leaguesCupBlobCache.events
   }
 
-  const url =
-    'https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=20260101-20261231&limit=200'
-
   try {
-    const data = await $fetch<Record<string, unknown>>(url)
-    const events = (data.events as Array<Record<string, unknown>>) ?? []
+    const events = await fetchSeasonByMonth('concacaf.leagues.cup')
     leaguesCupBlobCache = { events, fetchedAt: now }
     return events
   } catch {

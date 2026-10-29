@@ -13,6 +13,7 @@ yarn.lock
 
 # Misc
 .DS_Store
+data-check-report.json
 .env
 .env.*
 !.env.example

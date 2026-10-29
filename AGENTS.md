@@ -74,4 +74,11 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 pnpm dev        # dev server at localhost:3000
 pnpm build      # production build
 pnpm preview    # preview production build
+pnpm check:data # compare hand-maintained data against ESPN + smoke-test live API
 ```
+
+## Data check
+
+`pnpm check:data` (`scripts/data-check/`) flags drift in hand-maintained data: `TEAM_VENUE` / `MLS_STADIUMS` vs. the venues ESPN reports for recent home matches, team IDs/names/conferences, `SEASON_YEAR`, missing logo/stadium images, and broken live API routes (`--site=http://localhost:3000` to test local, `--no-site` to skip). Exits 1 on errors.
+
+`.github/workflows/data-check.yml` runs it daily, opens one GitHub issue (label `data-check`) per new finding, auto-closes it once fixed, and emails a summary via Resend only when something changes. Close an issue with `wontfix` to silence it. When adding a stadium, renaming one, or changing a team's home, update both `MLS_STADIUMS` and `TEAM_VENUE`, then re-run the check.

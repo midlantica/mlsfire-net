@@ -13,7 +13,7 @@
  */
 
 import { formatHex, oklch, parse, wcagContrast } from 'culori'
-import { TEAM_COLOR_PAIRS, TEAM_COLORS } from '~/composables/useTeamColors'
+import { TEAM_COLOR_PAIRS, TEAM_COLORS } from './useTeamColors'
 
 // ── Team → logo filename map ──────────────────────────────────────────────────
 // Keys match TEAM_COLORS keys exactly.
@@ -339,7 +339,7 @@ export const TEAM_VENUE: Record<string, string> = {
   'FC Cincinnati': 'TQL Stadium, Cincinnati, OH',
   'FC Dallas': 'Toyota Stadium, Frisco, TX',
   'Houston Dynamo FC': 'Shell Energy Stadium, Houston, TX',
-  'Inter Miami CF': 'Chase Stadium, Fort Lauderdale, FL',
+  'Inter Miami CF': 'Nu Stadium, Miami, FL',
   'LA Galaxy': 'Dignity Health Sports Park, Carson, CA',
   LAFC: 'BMO Stadium, Los Angeles, CA',
   'Minnesota United FC': 'Allianz Field, St. Paul, MN',
