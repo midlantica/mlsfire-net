@@ -334,7 +334,7 @@ export const TEAM_VENUE: Record<string, string> = {
   'Charlotte FC': 'Bank of America Stadium, Charlotte, NC',
   'Chicago Fire FC': 'Soldier Field, Chicago, IL',
   'Colorado Rapids': "Dick's Sporting Goods Park, Commerce City, CO",
-  'Columbus Crew': 'Lower.com Field, Columbus, OH',
+  'Columbus Crew': 'ScottsMiracle-Gro Field, Columbus, OH',
   'D.C. United': 'Audi Field, Washington, D.C.',
   'FC Cincinnati': 'TQL Stadium, Cincinnati, OH',
   'FC Dallas': 'Toyota Stadium, Frisco, TX',
@@ -350,20 +350,21 @@ export const TEAM_VENUE: Record<string, string> = {
   'Philadelphia Union': 'Subaru Park, Chester, PA',
   'Portland Timbers': 'Providence Park, Portland, OR',
   'Real Salt Lake': 'America First Field, Sandy, UT',
-  'Red Bull New York': 'Red Bull Arena, Harrison, NJ',
+  'Red Bull New York': 'Sports Illustrated Stadium, Harrison, NJ',
   'San Diego FC': 'Snapdragon Stadium, San Diego, CA',
   'San Jose Earthquakes': 'PayPal Park, San Jose, CA',
   'Seattle Sounders FC': 'Lumen Field, Seattle, WA',
-  'Sporting Kansas City': "Children's Mercy Park, Kansas City, KS",
-  'St. Louis City SC': 'CITYPARK, St. Louis, MO',
-  'St. Louis CITY SC': 'CITYPARK, St. Louis, MO',
+  'Sporting Kansas City': 'Sporting Park, Kansas City, KS',
+  'St. Louis City SC': 'Energizer Park, St. Louis, MO',
+  'St. Louis CITY SC': 'Energizer Park, St. Louis, MO',
   'Toronto FC': 'BMO Field, Toronto, ON',
   'Vancouver Whitecaps': 'BC Place, Vancouver, BC',
 }
 
 // ── Short venue overrides (for narrow displays) ───────────────────────────────
 export const TEAM_VENUE_SHORT: Record<string, string> = {
-  'Sporting Kansas City': "Children's Mercy Pk, Kansas City, KS",
+  'Columbus Crew': 'ScottsMiracle-Gro Fld, Columbus, OH',
+  'Red Bull New York': 'Sports Illustrated Stad., Harrison, NJ',
 }
 
 // ── Composable ────────────────────────────────────────────────────────────────
