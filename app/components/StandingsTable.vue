@@ -3,8 +3,26 @@
   import { getTeamColor } from '~/composables/useTeamColors'
   import { TEAM_LOGO } from '~/composables/useTeamTheme'
 
-  defineProps<{ conference: ConferenceStandings }>()
+  const props = defineProps<{ conference: ConferenceStandings }>()
   const emit = defineEmits<{ 'select-team': [team: string] }>()
+
+  const hasPlayoffLines = computed(() =>
+    props.conference.entries.some((e) => e.playoff)
+  )
+
+  // A cut line goes under the last team of a qualification band — the row
+  // where the band changes. Only drawn once ESPN marks qualifiers.
+  function isCut(index: number, band: 'direct' | 'wildcard'): boolean {
+    const entries = props.conference.entries
+    const entry = entries[index]
+    const next = entries[index + 1]
+    return (
+      hasPlayoffLines.value &&
+      entry?.playoff === band &&
+      next?.playoff !== band &&
+      !!next
+    )
+  }
 
   const STANDINGS_SHORT_NAME: Record<string, string> = {
     'New England Revolution': 'NE Revolution',
@@ -34,9 +52,20 @@
         </thead>
         <tbody>
           <tr
-            v-for="entry in conference.entries"
+            v-for="(entry, i) in conference.entries"
             :key="entry.team"
             class="entry-row"
+            :class="{
+              'cut-direct': isCut(i, 'direct'),
+              'cut-wildcard': isCut(i, 'wildcard'),
+            }"
+            :title="
+              entry.playoff === 'direct'
+                ? 'Playoffs: Round One'
+                : entry.playoff === 'wildcard'
+                  ? 'Playoffs: Wild Card'
+                  : undefined
+            "
           >
             <td class="col-rank">
               <span class="rank-num">{{ entry.rank }}</span>
@@ -91,6 +120,14 @@
           </tr>
         </tbody>
       </table>
+    </div>
+    <div v-if="hasPlayoffLines" class="playoff-key">
+      <span class="playoff-key-item">
+        <span class="playoff-key-line" />Round One
+      </span>
+      <span class="playoff-key-item">
+        <span class="playoff-key-line dashed" />Wild Card
+      </span>
     </div>
   </div>
 </template>
@@ -166,6 +203,40 @@
   }
   .entry-row:last-child {
     border-bottom: none;
+  }
+
+  /* Playoff cut lines: solid under the Round One spots, dashed under the
+     Wild Card spots. */
+  .entry-row.cut-direct {
+    border-bottom: 2px solid var(--color-theme-400);
+  }
+  .entry-row.cut-wildcard {
+    border-bottom: 2px dashed oklab(100% 0 0 / 0.35);
+  }
+
+  .playoff-key {
+    display: flex;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-top: 0.5rem;
+    font-family: var(--font-condensed);
+    font-size: 0.7rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+  }
+  .playoff-key-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .playoff-key-line {
+    display: inline-block;
+    width: 1.25rem;
+    border-bottom: 2px solid var(--color-theme-400);
+  }
+  .playoff-key-line.dashed {
+    border-bottom: 2px dashed oklab(100% 0 0 / 0.35);
   }
 
   .standings-table td {

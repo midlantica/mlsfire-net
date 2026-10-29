@@ -27,18 +27,22 @@ export function useStats() {
   const error = ref<string | null>(null)
   const loaded = ref(false)
 
-  async function fetchStats() {
-    if (loaded.value) return
-    loading.value = true
+  /** `force` refetches in the background, keeping current leaders on screen. */
+  async function fetchStats(force = false) {
+    if (loaded.value && !force) return
+    const background = force && !!data.value
+    if (!background) loading.value = true
     error.value = null
     try {
       const result = await $fetch<StatsData>('/api/stats')
       data.value = result
       loaded.value = true
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to load stats'
+      if (!background) {
+        error.value = e instanceof Error ? e.message : 'Failed to load stats'
+      }
     } finally {
-      loading.value = false
+      if (!background) loading.value = false
     }
   }
 

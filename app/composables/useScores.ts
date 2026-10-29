@@ -343,6 +343,8 @@ export function useScores() {
 
   const activeTab = useState<WeekTab>('scores-activeTab', () => 'this')
   const lastUpdated = useState<string | null>('scores-lastUpdated', () => null)
+  // Count of in-flight week fetches; drives the header refresh indicator.
+  const refreshing = useState<number>('scores-refreshing', () => 0)
 
   async function fetchWeek(tab: WeekTab, force = false) {
     const w = weeks.value[tab]
@@ -350,6 +352,7 @@ export function useScores() {
     if (!force && w.loaded) return
     w.loading = true
     w.error = null
+    refreshing.value++
     try {
       // Append a cache-buster on force-refresh so the server bypasses its
       // in-memory cache and fetches fresh data from ESPN.
@@ -376,6 +379,7 @@ export function useScores() {
       // If we have no data yet, matches stays empty (shows "No matches found")
     } finally {
       w.loading = false
+      refreshing.value--
     }
   }
 
@@ -395,6 +399,7 @@ export function useScores() {
     weeks: weeks.value,
     activeTab,
     lastUpdated,
+    refreshing,
     fetchWeek,
     selectTab,
     hasLiveGames,

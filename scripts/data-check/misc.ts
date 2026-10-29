@@ -5,7 +5,11 @@ import {
   TEAM_LIST,
   TEAM_LOGO,
 } from '../../app/composables/useTeamTheme'
-import { SEASON_YEAR } from '../../app/constants/mls'
+import {
+  NEXT_SEASON_START,
+  OFFSEASON_START,
+  SEASON_YEAR,
+} from '../../app/constants/mls'
 import { MLS_STADIUMS } from '../../app/constants/venues'
 import { type Check, ESPN, errorMessage, getJson, slug } from './espn'
 
@@ -30,7 +34,26 @@ export const checkSeason: Check = {
         fix: `Update SEASON_YEAR in app/constants/mls.ts and search the repo for hardcoded "${SEASON_YEAR}" (leaders URL, fixtures labels).`,
       })
     }
-    if (!(await ctx.seasonEvents()).length) {
+    const events = await ctx.seasonEvents()
+    // Matches ESPN schedules inside our off-season window would be hidden
+    // behind the "season has concluded" message on empty weeks.
+    const inOffseason = events.filter(
+      (e) =>
+        e.date.slice(0, 10) >= OFFSEASON_START &&
+        e.date.slice(0, 10) < NEXT_SEASON_START
+    )
+    if (inOffseason.length) {
+      const last = inOffseason.at(-1)!
+      add({
+        key: `offseason-overlap:${last.date.slice(0, 10)}`,
+        severity: 'warn',
+        category: 'season',
+        title: `ESPN has ${inOffseason.length} MLS match(es) after the off-season start (${OFFSEASON_START})`,
+        detail: `Latest: ${last.date.slice(0, 10)}. The playoffs or MLS Cup may have moved later than the app expects.`,
+        fix: 'Move OFFSEASON_START / LAST_GAME_WEEK in app/constants/mls.ts past the last scheduled match.',
+      })
+    }
+    if (!events.length) {
       add({
         key: `season-empty:${SEASON_YEAR}`,
         severity: 'error',

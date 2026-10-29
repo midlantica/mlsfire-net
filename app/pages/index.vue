@@ -29,8 +29,15 @@
   const mainTab = ref<MainTab>(tabFromPath())
 
   // ── Scores composable ─────────────────────────────────────────────────────────
-  const { weeks, activeTab, lastUpdated, fetchWeek, selectTab, hasLiveGames } =
-    useScores()
+  const {
+    weeks,
+    activeTab,
+    lastUpdated,
+    refreshing,
+    fetchWeek,
+    selectTab,
+    hasLiveGames,
+  } = useScores()
 
   // ── Standings composable ──────────────────────────────────────────────────────
   const {
@@ -354,6 +361,102 @@
     }
   }
 
+  // ── Refresh on return ─────────────────────────────────────────────────────────
+  // Browsers freeze timers in background tabs and restore pages from the
+  // back/forward cache as-is, so a tab left open overnight would otherwise
+  // show yesterday's state until a hard reload. Refresh whenever the page
+  // becomes visible again, and on a slow cadence while it stays open.
+  const STALE_AFTER_MS = 60_000
+  const IDLE_REFRESH_MS = 5 * 60_000
+  let lastRefreshAt = 0
+  let idleTimer: ReturnType<typeof setInterval> | null = null
+  const standingsRefreshing = ref(false)
+
+  async function refreshStandings() {
+    standingsRefreshing.value = true
+    try {
+      await fetchStandings(true)
+    } finally {
+      standingsRefreshing.value = false
+    }
+  }
+
+  async function refreshAll() {
+    lastRefreshAt = Date.now()
+    // The week boundary moves at midnight, so re-resolve which tab to show
+    // when the day has changed since the last refresh.
+    const dayChanged = todayKey !== currentDayKey()
+    todayKey = currentDayKey()
+    const tasks: Promise<unknown>[] = [fetchWeek(activeTab.value, true)]
+    if (activeTab.value !== 'this') tasks.push(fetchWeek('this', true))
+    if (weeks.next.loaded && activeTab.value !== 'next')
+      tasks.push(fetchWeek('next', true))
+    if (weeks.last.loaded && activeTab.value !== 'last')
+      tasks.push(fetchWeek('last', true))
+    tasks.push(refreshStandings())
+    if (statsLoaded.value) tasks.push(fetchStats(true))
+    await Promise.all(tasks)
+    if (dayChanged) {
+      activeTab.value = 'this'
+      await initialLoad()
+    }
+    if (gameDetailOpen.value && gameDetailMatch.value) {
+      const id = gameDetailMatch.value.id
+      const refreshed = [
+        ...weeks.this.matches,
+        ...weeks.last.matches,
+        ...weeks.next.matches,
+      ].find((m) => m.id === id)
+      if (refreshed) gameDetailMatch.value = refreshed
+    }
+  }
+
+  function currentDayKey(): string {
+    return new Date().toLocaleDateString('en-CA', {
+      timeZone: 'America/Chicago',
+    })
+  }
+  let todayKey = ''
+
+  function refreshIfStale() {
+    if (document.visibilityState !== 'visible') return
+    if (Date.now() - lastRefreshAt < STALE_AFTER_MS) return
+    refreshAll()
+  }
+
+  function onPageShow(e: PageTransitionEvent) {
+    // Restored from the back/forward cache: always stale.
+    if (e.persisted) refreshAll()
+  }
+
+  function startRefreshOnReturn() {
+    todayKey = currentDayKey()
+    lastRefreshAt = Date.now()
+    document.addEventListener('visibilitychange', refreshIfStale)
+    window.addEventListener('focus', refreshIfStale)
+    window.addEventListener('online', refreshIfStale)
+    window.addEventListener('pageshow', onPageShow)
+    idleTimer = setInterval(() => {
+      // Live matches already poll every 30 s; this covers everything else
+      // (kickoff-time changes, standings, a new day) while the tab is open.
+      if (document.visibilityState !== 'visible' || hasLiveMatches.value) return
+      if (Date.now() - lastRefreshAt >= IDLE_REFRESH_MS) refreshAll()
+    }, 30_000)
+  }
+
+  function stopRefreshOnReturn() {
+    document.removeEventListener('visibilitychange', refreshIfStale)
+    window.removeEventListener('focus', refreshIfStale)
+    window.removeEventListener('online', refreshIfStale)
+    window.removeEventListener('pageshow', onPageShow)
+    if (idleTimer) clearInterval(idleTimer)
+    idleTimer = null
+  }
+
+  const isRefreshing = computed(
+    () => refreshing.value > 0 || standingsRefreshing.value
+  )
+
   // ── Initial load (client-side) ────────────────────────────────────────────────
   async function initialLoad() {
     // Always force-refresh on the client so we never show stale SSR data.
@@ -434,10 +537,12 @@
     }
 
     startPoll()
+    startRefreshOnReturn()
   })
 
   onUnmounted(() => {
     stopPoll()
+    stopRefreshOnReturn()
   })
 </script>
 
@@ -473,6 +578,17 @@
         Stats
       </button>
       <div class="tabs-spacer" />
+      <ClientOnly>
+        <Transition name="refresh-fade">
+          <span
+            v-if="isRefreshing"
+            class="refresh-indicator"
+            role="status"
+            aria-label="Updating"
+            title="Updating…"
+          />
+        </Transition>
+      </ClientOnly>
       <!-- TeamPicker is client-only: reads localStorage for saved team -->
       <ClientOnly>
         <TeamPicker class="team-picker-in-tabs" @open-modal="openTeamModal" />
@@ -623,6 +739,39 @@
 
   .tabs-spacer {
     flex: 1;
+  }
+
+  .refresh-indicator {
+    align-self: center;
+    width: 0.85rem;
+    height: 0.85rem;
+    margin-right: 0.6rem;
+    border: 2px solid oklab(100% 0 0 / 0.15);
+    border-top-color: var(--color-theme-400);
+    border-radius: 50%;
+    animation: refresh-spin 0.8s linear infinite;
+  }
+
+  @keyframes refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .refresh-fade-enter-active,
+  .refresh-fade-leave-active {
+    transition: opacity 0.3s ease;
+  }
+
+  .refresh-fade-enter-from,
+  .refresh-fade-leave-to {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .refresh-indicator {
+      animation-duration: 2.4s;
+    }
   }
 
   .team-picker-in-tabs {

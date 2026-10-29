@@ -10,6 +10,20 @@
 // date range, since MLS clubs play Leagues Cup fixtures during the regular
 // season and those games must appear on the wall alongside MLS matches.
 
+import {
+  LAST_GAME_WEEK,
+  NEXT_SEASON_FIRST_WEEK,
+  NEXT_SEASON_START,
+  OFFSEASON_START,
+  SEASON_YEAR,
+} from '../../app/constants/mls'
+
+function dayBefore(isoDate: string): Date {
+  const d = new Date(isoDate)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d
+}
+
 function toDateStr(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, '')
 }
@@ -52,13 +66,12 @@ const HIATUS_WINDOWS: HiatusWindow[] = [
       'The MLS season is on hiatus for the 2026 FIFA World Cup. MLS play resumes July 22, 2026.',
   },
   {
-    // 2026–27 off-season
-    start: new Date('2026-11-30'),
-    end: new Date('2027-02-26'),
-    lastGameWeekMonday: new Date('2026-11-23'), // week of MLS Cup / final games
-    nextGameWeekMonday: new Date('2027-02-22'), // week MLS 2027 season opens
-    message:
-      'The 2026 MLS season has concluded. The 2027 MLS season begins February 27, 2027.',
+    // 2026–27 off-season — dates live in app/constants/mls.ts.
+    start: new Date(OFFSEASON_START),
+    end: dayBefore(NEXT_SEASON_START),
+    lastGameWeekMonday: new Date(LAST_GAME_WEEK),
+    nextGameWeekMonday: new Date(NEXT_SEASON_FIRST_WEEK),
+    message: `The ${SEASON_YEAR} MLS season has concluded. The ${SEASON_YEAR + 1} MLS season begins ${fmtUTC(new Date(NEXT_SEASON_START))}, ${SEASON_YEAR + 1}.`,
   },
 ]
 

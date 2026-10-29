@@ -15,11 +15,24 @@ export interface StandingEntry {
   gd: number
   ppg: number
   overall: string
+  /** Playoff qualification from ESPN's standings note; null when outside (or undecided). */
+  playoff: PlayoffSpot | null
 }
+
+/** `direct` = Round One (top 7), `wildcard` = Wild Card match (8th–9th). */
+export type PlayoffSpot = 'direct' | 'wildcard'
 
 export interface ConferenceStandings {
   name: string
   entries: StandingEntry[]
+}
+
+// ESPN attaches e.g. "Qualifies for MLS Cup Playoffs - Wild Card Matches" to
+// each qualifying entry, so the cut lines follow ESPN rather than hardcoded
+// positions (the field size has changed before and may again).
+function playoffSpot(description?: string): PlayoffSpot | null {
+  if (!description || !/playoff/i.test(description)) return null
+  return /wild ?card/i.test(description) ? 'wildcard' : 'direct'
 }
 
 function getStat(
@@ -38,9 +51,12 @@ export function useStandings() {
   const error = useState<string | null>('standings-error', () => null)
   const loaded = useState<boolean>('standings-loaded', () => false)
 
-  async function fetchStandings() {
-    if (loading.value || loaded.value) return
-    loading.value = true
+  /** `force` refetches in the background without flipping `loading`, so the
+   *  table stays on screen (no skeleton flash) while fresh data arrives. */
+  async function fetchStandings(force = false) {
+    if (loading.value || (loaded.value && !force)) return
+    const background = force && loaded.value
+    if (!background) loading.value = true
     error.value = null
     try {
       const data = await $fetch<Record<string, unknown>>('/api/standings')
@@ -78,6 +94,10 @@ export function useStandings() {
                     stats.find((s) => s.name === 'overall') as
                       Record<string, unknown> | undefined
                   )?.summary as string) ?? '',
+                playoff: playoffSpot(
+                  (entry.note as Record<string, unknown> | undefined)
+                    ?.description as string | undefined
+                ),
               }
             })
             // ESPN's standings API has occasionally returned one conference's
@@ -97,9 +117,13 @@ export function useStandings() {
 
       loaded.value = true
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : 'Failed to load standings'
+      // A failed background refresh keeps the table we already have.
+      if (!background) {
+        error.value =
+          e instanceof Error ? e.message : 'Failed to load standings'
+      }
     } finally {
-      loading.value = false
+      if (!background) loading.value = false
     }
   }
 
