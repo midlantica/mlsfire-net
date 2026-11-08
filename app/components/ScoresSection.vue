@@ -1,9 +1,11 @@
 <script setup lang="ts">
   import { useScores } from '~/composables/useScores'
   import { useMatchView } from '~/composables/useMatchView'
+  import { usePlayoffsTab } from '~/composables/usePlayoffs'
+  import { MLS_CUP_DATE, PLAYOFFS_START } from '~/constants/mls'
   import { getCompetition } from '~/constants/rounds'
 
-  import type { Match } from '~/composables/useScores'
+  import type { Match, ScoresTab } from '~/composables/useScores'
 
   const emit = defineEmits<{
     'select-team': [team: string]
@@ -11,12 +13,32 @@
   }>()
 
   const { weeks, activeTab, selectTab } = useScores()
+  const { active: playoffsTab } = usePlayoffsTab()
 
-  const allWeekMatches = computed(() => weeks[activeTab.value].matches)
+  const tabs = computed<ScoresTab[]>(() => [
+    'last',
+    'this',
+    playoffsTab.value ? 'playoffs' : 'next',
+  ])
+
+  function fmtDay(iso: string): string {
+    return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    })
+  }
+  const playoffsLabel = `${fmtDay(PLAYOFFS_START)} – ${fmtDay(MLS_CUP_DATE)}`
+
+  const activeWeek = computed(() =>
+    activeTab.value === 'playoffs' ? null : weeks[activeTab.value]
+  )
+
+  const allWeekMatches = computed(() => activeWeek.value?.matches ?? [])
 
   // Hiatus message comes from the server (scores API) — it's set when the
   // current week falls inside a known hiatus window (WC break, off-season).
-  const hiatusMsg = computed(() => weeks[activeTab.value].hiatus ?? null)
+  const hiatusMsg = computed(() => activeWeek.value?.hiatus ?? null)
 
   const { weekByDayGroups } = useMatchView(allWeekMatches, activeTab)
 
@@ -200,22 +222,33 @@
   <!-- Week sub-tabs -->
   <div class="week-tabs">
     <button
-      v-for="tab in ['last', 'this', 'next'] as const"
+      v-for="tab in tabs"
       :key="tab"
       class="week-tab"
       :class="{ active: activeTab === tab }"
       @click="selectTab(tab)"
     >
-      <span v-if="tab === 'last'">← Last</span>
-      <span v-else-if="tab === 'this'">This Week</span>
-      <span v-else>Next →</span>
-      <span class="week-label">{{ weeks[tab].label }}</span>
+      <template v-if="tab === 'playoffs'">
+        <span>MLS Cup Playoffs</span>
+        <span class="week-label">{{ playoffsLabel }}</span>
+      </template>
+      <template v-else>
+        <span v-if="tab === 'last'">← Last</span>
+        <span v-else-if="tab === 'this'">This Week</span>
+        <span v-else>Next →</span>
+        <span class="week-label">{{ weeks[tab].label }}</span>
+      </template>
     </button>
   </div>
 
+  <PlayoffsBracket
+    v-if="activeTab === 'playoffs'"
+    @open-game-detail="emit('open-game-detail', $event)"
+  />
+
   <!-- Hiatus message (only after load completes and no matches) -->
   <div
-    v-if="hiatusMsg && !allWeekMatches.length && !weeks[activeTab].loading"
+    v-else-if="hiatusMsg && !allWeekMatches.length && !activeWeek?.loading"
     class="empty-state"
   >
     <h3 class="hiatus-msg">{{ hiatusMsg }}</h3>

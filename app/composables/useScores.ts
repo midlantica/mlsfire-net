@@ -31,9 +31,14 @@ export interface Match {
   badge: MatchBadge // hot flame = top clash | cool flame = wild card | null
   seasonSlug: string | null // ESPN season.slug — identifies the playoff round
   seriesNote: string | null // e.g. "CIN leads series 1-0", "Series tied 1-1"
+  /** A playoff pairing ESPN hasn't scheduled yet: the round's date window, shown instead of a kickoff. */
+  windowLabel?: string
 }
 
 export type WeekTab = 'last' | 'this' | 'next'
+
+/** During the postseason the "Next" week tab is replaced by the bracket. */
+export type ScoresTab = WeekTab | 'playoffs'
 
 // ── Known MLS derbies / rivalries ─────────────────────────────────────────────
 // Each pair is stored as a sorted tuple so order doesn't matter
@@ -341,7 +346,7 @@ export function useScores() {
     },
   }))
 
-  const activeTab = useState<WeekTab>('scores-activeTab', () => 'this')
+  const activeTab = useState<ScoresTab>('scores-activeTab', () => 'this')
   const lastUpdated = useState<string | null>('scores-lastUpdated', () => null)
   // Count of in-flight week fetches; drives the header refresh indicator.
   const refreshing = useState<number>('scores-refreshing', () => 0)
@@ -383,9 +388,9 @@ export function useScores() {
     }
   }
 
-  async function selectTab(tab: WeekTab) {
+  async function selectTab(tab: ScoresTab) {
     activeTab.value = tab
-    if (!weeks.value[tab].loaded) await fetchWeek(tab)
+    if (tab !== 'playoffs' && !weeks.value[tab].loaded) await fetchWeek(tab)
   }
 
   /** Returns true if any match in the given tab is currently live or at HT */

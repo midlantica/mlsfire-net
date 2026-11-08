@@ -15,6 +15,10 @@
 
 export type Conference = 'East' | 'West'
 
+/** MLS postseason rounds, keyed by the round part of ESPN's `season.slug`. */
+export type PlayoffRound =
+  'wild-card' | 'round-one' | 'semifinals' | 'final' | 'mls-cup'
+
 export interface RoundInfo {
   /** Compact badge text for the match wall, e.g. "RD 1" */
   short: string

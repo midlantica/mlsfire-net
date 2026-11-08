@@ -1,8 +1,14 @@
 // Server-side API route: proxies ESPN's MLS match summary API
 // Accepts ?eventId=<espnEventId>
 // Returns boxscore stats, odds, rosters, head-to-head, venue, leaders
+//
+// Also accepts a bracket matchup id (`matchup-<homeId>-<awayId>`) for a
+// playoff pairing ESPN hasn't scheduled yet — see utils/matchupPreview.
 
 import { ALL_STAR_FALLBACK_ROSTERS } from '../utils/allStarRosters'
+import { buildMatchupPreview, MATCHUP_ID } from '../utils/matchupPreview'
+import { fetchSeasonBlob } from '../utils/seasonRecords'
+import { fetchSeasonStandings } from '../utils/seasonStandings'
 
 const CACHE_TTL_LIVE_MS = 30_000 // 30 s during live matches
 
@@ -30,6 +36,31 @@ export default defineEventHandler(async (event) => {
 
   if (!eventId) {
     throw createError({ statusCode: 400, message: 'eventId is required' })
+  }
+
+  const matchup = eventId.match(MATCHUP_ID)
+  if (matchup) {
+    try {
+      const [standings, season] = await Promise.all([
+        fetchSeasonStandings(),
+        fetchSeasonBlob(),
+      ])
+      const preview = buildMatchupPreview(
+        eventId,
+        matchup[1]!,
+        matchup[2]!,
+        standings,
+        season
+      )
+      if (preview) return preview
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      throw createError({
+        statusCode: 502,
+        message: `ESPN API error: ${message}`,
+      })
+    }
+    throw createError({ statusCode: 404, message: 'Unknown matchup' })
   }
 
   const now = Date.now()

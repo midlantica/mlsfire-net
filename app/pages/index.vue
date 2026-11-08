@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { useScores, transformMatches } from '~/composables/useScores'
+  import { usePlayoffs, usePlayoffsTab } from '~/composables/usePlayoffs'
   import { useStandings } from '~/composables/useStandings'
   import { useStats } from '~/composables/useStats'
   import { useAnalytics } from '~/composables/useAnalytics'
@@ -38,6 +39,27 @@
     selectTab,
     hasLiveGames,
   } = useScores()
+
+  // ── Playoffs bracket (replaces the "Next" week tab in the postseason) ────────
+  const {
+    loaded: bracketLoaded,
+    loading: bracketLoading,
+    matches: bracketMatches,
+    previews: bracketPreviews,
+    hasLiveGames: bracketHasLive,
+    fetchBracket,
+  } = usePlayoffs()
+  const { active: playoffsTab, recheck: recheckPlayoffsTab } = usePlayoffsTab()
+
+  function allLoadedMatches(): Match[] {
+    return [
+      ...weeks.this.matches,
+      ...weeks.last.matches,
+      ...weeks.next.matches,
+      ...bracketMatches.value,
+      ...bracketPreviews.value,
+    ]
+  }
 
   // ── Standings composable ──────────────────────────────────────────────────────
   const {
@@ -281,12 +303,7 @@
         // Back/forward navigation: try to find match in scoreboard cache
         const id = route.query.id as string | undefined
         if (id) {
-          const allMatches = [
-            ...weeks.this.matches,
-            ...weeks.last.matches,
-            ...weeks.next.matches,
-          ]
-          const match = allMatches.find((m) => m.id === id)
+          const match = allLoadedMatches().find((m) => m.id === id)
           if (match) {
             gameDetailMatch.value = match
             gameDetailOpen.value = true
@@ -314,6 +331,7 @@
   // Poll when there are live/HT matches, OR when there are "not started" matches
   // whose kickoff time has already passed (they may have gone live since last fetch).
   const hasLiveMatches = computed(() => {
+    if (activeTab.value === 'playoffs') return bracketHasLive.value
     const now = Date.now()
     return weeks[activeTab.value].matches.some(
       (m) =>
@@ -330,25 +348,19 @@
     pollTimer = setInterval(async () => {
       if (!hasLiveMatches.value) return
       // Force-refresh the active tab so scores + W-T-L update live
-      await fetchWeek(activeTab.value, true)
+      if (activeTab.value === 'playoffs') await fetchBracket(true)
+      else await fetchWeek(activeTab.value, true)
       // Also refresh the 'next' tab if 'this' week has live games —
       // so next week's game cards show updated W-T-L after games complete.
-      if (
-        activeTab.value === 'this' &&
-        hasLiveGames('this') &&
-        weeks.next.loaded
-      ) {
-        fetchWeek('next', true)
+      if (activeTab.value === 'this' && hasLiveGames('this')) {
+        if (weeks.next.loaded) fetchWeek('next', true)
+        // Live playoff games move the bracket too.
+        if (bracketLoaded.value) fetchBracket(true)
       }
       // Keep the open game detail modal in sync with the refreshed match data
       if (gameDetailOpen.value && gameDetailMatch.value) {
         const id = gameDetailMatch.value.id
-        const allMatches = [
-          ...weeks.this.matches,
-          ...weeks.last.matches,
-          ...weeks.next.matches,
-        ]
-        const refreshed = allMatches.find((m) => m.id === id)
+        const refreshed = allLoadedMatches().find((m) => m.id === id)
         if (refreshed) gameDetailMatch.value = refreshed
       }
     }, 30_000)
@@ -387,7 +399,10 @@
     // when the day has changed since the last refresh.
     const dayChanged = todayKey !== currentDayKey()
     todayKey = currentDayKey()
-    const tasks: Promise<unknown>[] = [fetchWeek(activeTab.value, true)]
+    const tasks: Promise<unknown>[] = []
+    if (activeTab.value !== 'playoffs')
+      tasks.push(fetchWeek(activeTab.value, true))
+    if (bracketLoaded.value) tasks.push(fetchBracket(true))
     if (activeTab.value !== 'this') tasks.push(fetchWeek('this', true))
     if (weeks.next.loaded && activeTab.value !== 'next')
       tasks.push(fetchWeek('next', true))
@@ -397,16 +412,13 @@
     if (statsLoaded.value) tasks.push(fetchStats(true))
     await Promise.all(tasks)
     if (dayChanged) {
+      recheckPlayoffsTab()
       activeTab.value = 'this'
       await initialLoad()
     }
     if (gameDetailOpen.value && gameDetailMatch.value) {
       const id = gameDetailMatch.value.id
-      const refreshed = [
-        ...weeks.this.matches,
-        ...weeks.last.matches,
-        ...weeks.next.matches,
-      ].find((m) => m.id === id)
+      const refreshed = allLoadedMatches().find((m) => m.id === id)
       if (refreshed) gameDetailMatch.value = refreshed
     }
   }
@@ -454,7 +466,8 @@
   }
 
   const isRefreshing = computed(
-    () => refreshing.value > 0 || standingsRefreshing.value
+    () =>
+      refreshing.value > 0 || standingsRefreshing.value || bracketLoading.value
   )
 
   // ── Initial load (client-side) ────────────────────────────────────────────────
@@ -464,9 +477,16 @@
     await fetchWeek('this', true)
 
     const thisMatches = weeks.this.matches
+    // In the postseason the bracket is the natural landing spot whenever
+    // there's nothing left to watch this week.
+    const playoffs = playoffsTab.value
     if (thisMatches.length === 0) {
-      activeTab.value = 'last'
-      await fetchWeek('last')
+      if (playoffs) {
+        activeTab.value = 'playoffs'
+      } else {
+        activeTab.value = 'last'
+        await fetchWeek('last')
+      }
     } else {
       const hasUpcoming = thisMatches.some((m) => m.status.code === 'ns')
       const hasLive = thisMatches.some(
@@ -476,8 +496,12 @@
         thisMatches.length > 0 &&
         thisMatches.every((m) => m.status.code === 'ft')
       if (allDone && !hasUpcoming && !hasLive) {
-        activeTab.value = 'next'
-        await fetchWeek('next')
+        if (playoffs) {
+          activeTab.value = 'playoffs'
+        } else {
+          activeTab.value = 'next'
+          await fetchWeek('next')
+        }
       }
     }
   }
@@ -508,23 +532,17 @@
 
     // After scores are loaded, resolve the match for a /game?id= refresh
     if (isGameRoute && gameId) {
-      // Search all loaded weeks
-      let allMatches = [
-        ...weeks.this.matches,
-        ...weeks.last.matches,
-        ...weeks.next.matches,
-      ]
-      let match = allMatches.find((m) => m.id === gameId)
+      let match = allLoadedMatches().find((m) => m.id === gameId)
 
-      // If not found, eagerly fetch last + next weeks and try again
+      // If not found, eagerly fetch last + next weeks (and the bracket in
+      // the postseason) and try again
       if (!match) {
-        await Promise.all([fetchWeek('last'), fetchWeek('next')])
-        allMatches = [
-          ...weeks.this.matches,
-          ...weeks.last.matches,
-          ...weeks.next.matches,
-        ]
-        match = allMatches.find((m) => m.id === gameId)
+        await Promise.all([
+          fetchWeek('last'),
+          fetchWeek('next'),
+          ...(playoffsTab.value ? [fetchBracket()] : []),
+        ])
+        match = allLoadedMatches().find((m) => m.id === gameId)
       }
 
       if (match) {

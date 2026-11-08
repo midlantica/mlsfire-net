@@ -62,6 +62,12 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 - `LineupsTab.vue` — current roster / fallback last-lineup
 - `FixturesTab.vue` — full 2026 season fixtures by month
 
+### Playoffs/ folder (`app/components/Playoffs/`)
+
+- `Bracket.vue` — replaces the "Next" week tab with "MLS Cup Playoffs" between `PLAYOFFS_TAB_FROM` and `OFFSEASON_START` (`app/constants/mls.ts`). Wide screens get the mirrored West | MLS Cup | East bracket; narrower screens switch conferences with tabs and scroll sideways.
+- `TieCard.vue` / `CupCard.vue` — one matchup each; clicking opens `GameDetailModal`. Before ESPN schedules a set pairing, the card opens a preview match (`matchup-<homeId>-<awayId>`, `windowLabel` instead of a kickoff) that `server/api/match-detail.ts` answers from `server/utils/matchupPreview.ts`.
+- Data: `server/api/playoffs.ts` → `server/utils/playoffBracket.ts` (pure; builds the bracket from ESPN standings seeds plus postseason scoreboard events) → `usePlayoffs()`.
+
 ### Team metadata
 
 - `TEAM_LOGO` — team logo URLs (in `useTeamTheme.ts`)

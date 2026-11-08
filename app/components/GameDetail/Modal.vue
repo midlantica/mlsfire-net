@@ -137,6 +137,11 @@
   const matchMeta = computed(() => {
     if (!props.match?.date) return ''
     const d = new Date(props.match.date)
+    // Unscheduled playoff pairing: the date is only a placeholder.
+    if (props.match.windowLabel) {
+      const year = d.getUTCFullYear()
+      return `${props.match.windowLabel.toUpperCase()} · TIME TBD · ${year}`
+    }
     const day = d
       .toLocaleDateString('en-US', {
         weekday: 'short',
@@ -172,9 +177,10 @@
   )
 
   // Kickoff time for mobile clock block (pre-match)
-  const kickoffLabel = computed(() =>
-    props.match?.date ? formatTimeHtml(props.match.date) : ''
-  )
+  const kickoffLabel = computed(() => {
+    if (props.match?.windowLabel) return 'TBD'
+    return props.match?.date ? formatTimeHtml(props.match.date) : ''
+  })
 
   // ── Local clock ticker for mobile clock block (mirrors GameBlock logic) ──────
   const localClock = ref<string | null>(null)
