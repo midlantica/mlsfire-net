@@ -12,17 +12,17 @@
     "check:data": "tsx scripts/check-data.mts"
   },
   "dependencies": {
-    "@netlify/blobs": "^10.7.10",
+    "@netlify/blobs": "^11.1.7",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "culori": "^4.0.2",
-    "nuxt": "^4.5.0",
+    "nuxt": "^4.6.3",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/culori": "^4.0.1",
-    "@types/node": "^26.1.2",
-    "prettier": "^3.9.6",
+    "@types/node": "^26.6.6",
+    "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
