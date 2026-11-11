@@ -39,7 +39,14 @@
 </script>
 
 <template>
-  <div class="min-h-screen text-gray-100">
+  <div class="app-shell">
     <NuxtPage />
   </div>
 </template>
+
+<style scoped>
+  .app-shell {
+    min-height: 100vh;
+    color: oklch(96.7% 0.003 264.542);
+  }
+</style>

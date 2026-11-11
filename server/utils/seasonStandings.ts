@@ -1,4 +1,4 @@
-import { SEASON_YEAR } from '../../app/constants/mls'
+import { PLAYOFFS_SEASON } from '../../app/constants/mls'
 
 const STANDINGS_TTL_MS = 10 * 60_000
 
@@ -8,8 +8,8 @@ let standingsCache: {
 } | null = null
 
 /**
- * ESPN conference standings for `SEASON_YEAR`, pinned to that season so the
- * playoff seeds survive ESPN rolling its default over to the next year.
+ * ESPN conference standings for the playoffs' season, pinned so the seeds
+ * survive ESPN (and `SEASON_YEAR`) rolling over to the next year.
  */
 export async function fetchSeasonStandings(): Promise<Record<string, unknown>> {
   const now = Date.now()
@@ -18,7 +18,7 @@ export async function fetchSeasonStandings(): Promise<Record<string, unknown>> {
   }
   try {
     const data = await $fetch<Record<string, unknown>>(
-      `https://site.api.espn.com/apis/v2/sports/soccer/usa.1/standings?season=${SEASON_YEAR}`,
+      `https://site.api.espn.com/apis/v2/sports/soccer/usa.1/standings?season=${PLAYOFFS_SEASON}`,
       { retry: 1 }
     )
     standingsCache = { data, fetchedAt: now }

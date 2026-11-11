@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import type { Match } from '~/composables/useScores'
+  import { SEASON_YEAR } from '~/constants/mls'
 
   defineProps<{
     scheduleLoading: boolean
@@ -63,7 +64,7 @@
           class="schedule-fixtures-link"
           @click="emit('navigate-fixtures')"
         >
-          Show all 2026 fixtures
+          Show all {{ SEASON_YEAR }} fixtures
         </button>
       </div>
     </div>

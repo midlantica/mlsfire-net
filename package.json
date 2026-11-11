@@ -9,21 +9,19 @@
     "preview": "nuxt preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check:data": "tsx scripts/check-data.mts"
+    "check:data": "tsx scripts/check-data.mts",
+    "archive:standings": "tsx scripts/archive-standings.mts",
+    "archive:week": "tsx scripts/archive-week.mts"
   },
   "dependencies": {
-    "@netlify/blobs": "^11.1.7",
-    "@tailwindcss/typography": "^0.5.20",
-    "@tailwindcss/vite": "^4.3.3",
+    "@netlify/blobs": "^11.1.9",
     "culori": "^4.0.2",
-    "nuxt": "^4.6.3",
-    "tailwindcss": "^4.3.3"
+    "nuxt": "^4.6.4"
   },
   "devDependencies": {
     "@types/culori": "^4.0.1",
     "@types/node": "^26.6.6",
     "prettier": "^3.9.10",
-    "prettier-plugin-tailwindcss": "^0.8.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }

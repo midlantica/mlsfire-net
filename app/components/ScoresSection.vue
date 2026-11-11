@@ -2,7 +2,13 @@
   import { useScores } from '~/composables/useScores'
   import { useMatchView } from '~/composables/useMatchView'
   import { usePlayoffsTab } from '~/composables/usePlayoffs'
-  import { MLS_CUP_DATE, PLAYOFFS_START } from '~/constants/mls'
+  import {
+    MLS_CUP_DATE,
+    NEXT_SEASON_CONFIRMED,
+    NEXT_SEASON_START,
+    PLAYOFFS_SEASON,
+    PLAYOFFS_START,
+  } from '~/constants/mls'
   import { getCompetition } from '~/constants/rounds'
 
   import type { Match, ScoresTab } from '~/composables/useScores'
@@ -13,7 +19,16 @@
   }>()
 
   const { weeks, activeTab, selectTab } = useScores()
-  const { active: playoffsTab } = usePlayoffsTab()
+  const { active: playoffsTab, offseason } = usePlayoffsTab()
+
+  const nextSeasonStart = NEXT_SEASON_CONFIRMED
+    ? new Date(`${NEXT_SEASON_START}T12:00:00Z`).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    : `in ${new Date(`${NEXT_SEASON_START}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' })}`
 
   const tabs = computed<ScoresTab[]>(() => [
     'last',
@@ -233,8 +248,12 @@
         <span class="week-label">{{ playoffsLabel }}</span>
       </template>
       <template v-else>
-        <span v-if="tab === 'last'">← Last</span>
-        <span v-else-if="tab === 'this'">This Week</span>
+        <span v-if="tab === 'last'">{{
+          weeks.last.frozen ? 'Final Stretch' : '← Last'
+        }}</span>
+        <span v-else-if="tab === 'this'">{{
+          weeks.this.frozen ? 'Decision Day' : 'This Week'
+        }}</span>
         <span v-else>Next →</span>
         <span class="week-label">{{ weeks[tab].label }}</span>
       </template>
@@ -256,6 +275,24 @@
 
   <!-- All week's games: grouped by day → time slot, quality-sorted within each slot -->
   <div v-else-if="allWeekMatches.length" class="match-list">
+    <p v-if="activeWeek?.frozen" class="season-over">
+      <template v-if="offseason">
+        The {{ PLAYOFFS_SEASON }} season is over — these were the final two
+        weeks of its regular season. The {{ PLAYOFFS_SEASON + 1 }} season kicks
+        off {{ nextSeasonStart }}.
+      </template>
+      <template v-else>
+        The {{ PLAYOFFS_SEASON }} regular season is complete — these are its
+        final two weeks. The MLS Cup Playoffs run {{ playoffsLabel }}.
+      </template>
+      <button
+        v-if="playoffsTab"
+        class="season-over-link"
+        @click="selectTab('playoffs')"
+      >
+        See the bracket →
+      </button>
+    </p>
     <section
       v-for="{ day, slots } in weekByDayGroups"
       :key="day.key"
@@ -400,6 +437,31 @@
   }
 
   /* ── Empty state ────────────────────────────────────────────────────────── */
+  .season-over {
+    margin: 1rem auto 0.25rem;
+    max-width: 40rem;
+    text-align: center;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+    text-wrap: balance;
+  }
+  .season-over-link {
+    margin-left: 0.25rem;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--color-theme-300);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .season-over-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
   .empty-state {
     display: flex;
     align-items: center;

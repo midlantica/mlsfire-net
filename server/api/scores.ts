@@ -11,10 +11,12 @@
 // season and those games must appear on the wall alongside MLS matches.
 
 import {
+  FINAL_WEEKS,
   LAST_GAME_WEEK,
   NEXT_SEASON_FIRST_WEEK,
   NEXT_SEASON_START,
   OFFSEASON_START,
+  PLAYOFFS_TAB_FROM,
   SEASON_YEAR,
 } from '../../app/constants/mls'
 
@@ -115,7 +117,9 @@ function literalWeekBounds(offset: number, ctNow?: Date): WeekBounds {
 /** Bounds for the nearest MLS week with games, snapped from a hiatus window. */
 function snappedWeekBounds(monday: Date): WeekBounds {
   const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
+  // UTC arithmetic: these Mondays are ISO (UTC-midnight) dates, and local
+  // setDate() drifts an hour across a DST change and lands on the wrong day.
+  sunday.setUTCDate(monday.getUTCDate() + 6)
   // Use fmtUTC to avoid timezone shift on ISO-string-constructed dates
   const label = fmtUTC(monday) + ' – ' + fmtUTC(sunday)
   return { from: toDateStr(monday), to: toDateStr(sunday), label, monday }
@@ -343,6 +347,21 @@ async function fetchLeaguesCupRange(
   }
 }
 
+/** Today in Central time as YYYY-MM-DD. */
+function todayCT(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+}
+
+/** Finished weeks frozen by `pnpm archive:week` — served without calling ESPN. */
+async function archivedRange(
+  from: string,
+  to: string
+): Promise<Record<string, unknown> | null> {
+  return useStorage('assets:server').getItem<Record<string, unknown>>(
+    `scoreboard:${from}-${to}.json`
+  )
+}
+
 /**
  * Fetch and merge MLS + Leagues Cup events for a date range. MLS events keep
  * their `applyPriorRecords`-computed W-D-L (handled inside `fetchRange`);
@@ -358,6 +377,9 @@ async function fetchMergedRange(
   stale?: boolean
   error?: boolean
 }> {
+  const archived = await archivedRange(from, to)
+  if (archived) return { data: archived }
+
   const [mls, leaguesCup] = await Promise.all([
     fetchRange(from, to, bustCache),
     fetchLeaguesCupRange(from, to, bustCache),
@@ -410,6 +432,30 @@ export default defineEventHandler(async (event) => {
   }
 
   const weekOffset = query.week === 'last' ? -1 : query.week === 'next' ? 1 : 0
+
+  // From Decision Day until next season's opening week the calendar weeks
+  // are empty or hold playoff games the bracket already shows, so "Last" /
+  // "This" pin to the regular season's final two weeks.
+  const today = todayCT()
+  if (
+    weekOffset <= 0 &&
+    today >= PLAYOFFS_TAB_FROM &&
+    today < NEXT_SEASON_FIRST_WEEK
+  ) {
+    const pinned = snappedWeekBounds(
+      new Date(FINAL_WEEKS[weekOffset === 0 ? 'this' : 'last'])
+    )
+    const result = await fetchMergedRange(pinned.from, pinned.to, bustCache)
+    return {
+      ...result.data,
+      _weekLabel: pinned.label,
+      _from: pinned.from,
+      _to: pinned.to,
+      _frozen: true,
+      ...(result.stale ? { _stale: true } : {}),
+      ...(result.error ? { _error: true } : {}),
+    }
+  }
   const literal = literalWeekBounds(weekOffset)
 
   // Always check ESPN for the literal calendar week first — MLS occasionally

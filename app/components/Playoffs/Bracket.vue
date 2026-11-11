@@ -3,7 +3,7 @@
   import { bracketTies, usePlayoffs } from '~/composables/usePlayoffs'
   import type { BracketConference, BracketTie } from '~/composables/usePlayoffs'
   import { TEAM_CONFERENCE } from '~/composables/useTeamTheme'
-  import { PLAYOFF_ROUND_DATES } from '~/constants/mls'
+  import { PLAYOFF_ROUND_DATES, PLAYOFFS_SEASON } from '~/constants/mls'
   import type { PlayoffRound } from '~/constants/rounds'
 
   const emit = defineEmits<{
@@ -98,6 +98,25 @@
   ]
 
   const open = (match: Match) => emit('open-game-detail', match)
+
+  const champion = computed(() => {
+    const cup = bracket.value?.cup
+    const team =
+      cup?.winner === 'top'
+        ? cup.top
+        : cup?.winner === 'bottom'
+          ? cup.bottom
+          : null
+    if (!cup || !team) return null
+    const final = cup.games.at(-1) ?? null
+    let score = ''
+    if (final) {
+      score = `${final.home} ${final.homeScore}–${final.awayScore} ${final.away}`
+      if (final.homeShootout != null && final.awayShootout != null)
+        score += ` (${final.homeShootout}–${final.awayShootout} pens)`
+    }
+    return { team, final, score }
+  })
 </script>
 
 <template>
@@ -117,6 +136,30 @@
     />
 
     <template v-else>
+      <component
+        :is="champion.final ? 'button' : 'div'"
+        v-if="champion"
+        class="champion"
+        :type="champion.final ? 'button' : undefined"
+        @click="champion.final && open(champion.final)"
+      >
+        <img
+          v-if="champion.team.logo"
+          :src="champion.team.logo"
+          alt=""
+          class="champion-logo"
+        />
+        <span class="champion-text">
+          <span class="champion-kicker"
+            >🏆 {{ PLAYOFFS_SEASON }} MLS Cup Champions</span
+          >
+          <span class="champion-name">{{ champion.team.name }}</span>
+          <span v-if="champion.score" class="champion-score">{{
+            champion.score
+          }}</span>
+        </span>
+      </component>
+
       <div class="conf-switch" role="tablist" aria-label="Conference">
         <button
           v-for="conf in ['West', 'East'] as const"
@@ -158,7 +201,10 @@
               v-for="c in COLUMNS"
               :key="c.round"
               class="col-head"
-              :class="{ 'col-head-now': currentRound === c.round }"
+              :class="{
+                'col-head-now': currentRound === c.round,
+                'narrow-only': c.round === 'final',
+              }"
               :style="{ gridColumn: c.col }"
             >
               <span class="col-title">{{ c.title }}</span>
@@ -237,14 +283,18 @@
               />
             </div>
 
+            <!-- Narrow screens only; wide screens show both finals under MLS Cup. -->
             <PlayoffsTieCard
-              class="slot"
+              class="slot narrow-only"
               :style="{ gridColumn: 7, gridRow: '2 / span 4' }"
               :tie="half.final"
               :favorite="favorite"
               @open-game-detail="open"
             />
-            <div class="link" :style="{ gridColumn: 8, gridRow: '2 / span 4' }">
+            <div
+              class="link narrow-only"
+              :style="{ gridColumn: 8, gridRow: '2 / span 4' }"
+            >
               <span class="stub" :class="{ lit: advancing(half.final) }" />
             </div>
           </section>
@@ -259,12 +309,41 @@
                 PLAYOFF_ROUND_DATES['mls-cup']
               }}</span>
             </div>
+            <!-- Wide: MLS Cup on top, both conference finals centred below it
+                 so the semifinal connectors run straight into them. -->
             <div class="cup-body">
-              <PlayoffsCupCard
-                :tie="bracket.cup"
-                :favorite="favorite"
-                @open-game-detail="open"
-              />
+              <div class="cup-top">
+                <div class="cup-card">
+                  <PlayoffsCupCard
+                    :tie="bracket.cup"
+                    :favorite="favorite"
+                    @open-game-detail="open"
+                  />
+                </div>
+                <div class="cup-feed wide-only" aria-hidden="true">
+                  <span :class="{ lit: advancing(bracket.west.final) }" />
+                  <span :class="{ lit: advancing(bracket.east.final) }" />
+                </div>
+              </div>
+              <div class="cf-row wide-only">
+                <PlayoffsTieCard
+                  :tie="bracket.west.final"
+                  :favorite="favorite"
+                  @open-game-detail="open"
+                />
+                <PlayoffsTieCard
+                  :tie="bracket.east.final"
+                  :favorite="favorite"
+                  @open-game-detail="open"
+                />
+                <p
+                  class="cf-caption"
+                  :class="{ 'cf-caption-now': currentRound === 'final' }"
+                >
+                  <span class="col-title">Conf. Finals</span>
+                  <span class="col-dates">{{ PLAYOFF_ROUND_DATES.final }}</span>
+                </p>
+              </div>
             </div>
           </section>
         </div>
@@ -283,6 +362,86 @@
      column, so it breaks out to the viewport (minus a gutter). */
   .playoffs {
     margin-inline: calc(50% - min(50vw - 1.5rem, 40rem));
+  }
+
+  /* ── Champion banner (after MLS Cup) ────────────────────────────────── */
+  .champion {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    width: min(100%, 36rem);
+    margin: 1.25rem auto 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid oklch(78% 0.12 85 / 0.45);
+    border-radius: 0.75rem;
+    background: radial-gradient(
+      120% 140% at 50% 0%,
+      oklch(78% 0.12 85 / 0.16),
+      oklch(20% 0.03 260 / 0.6) 70%
+    );
+    font: inherit;
+    color: inherit;
+    text-align: left;
+  }
+  button.champion {
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  button.champion:hover {
+    border-color: oklch(78% 0.12 85 / 0.8);
+  }
+
+  .champion-logo {
+    width: 4.5rem;
+    height: 4.5rem;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .champion-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .champion-kicker {
+    font-family: var(--font-condensed);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(85% 0.11 85);
+  }
+
+  .champion-name {
+    font-family: var(--font-condensed);
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--color-text-primary);
+  }
+
+  .champion-score {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+  }
+
+  @media (max-width: 425px) {
+    .champion {
+      gap: 0.85rem;
+      padding: 1rem;
+      margin-inline: 1rem;
+      width: auto;
+    }
+    .champion-logo {
+      width: 3.25rem;
+      height: 3.25rem;
+    }
+    .champion-name {
+      font-size: 1.5rem;
+    }
   }
 
   /* ── Loading / error ────────────────────────────────────────────────── */
@@ -382,8 +541,9 @@
   /* Plain `1fr` keeps each conference at least as wide as its own columns,
      so it can never slide underneath the MLS Cup card. */
   .bracket {
+    --cf-gap: 0.6rem;
     display: grid;
-    grid-template-columns: 1fr minmax(9rem, 10.5rem) 1fr;
+    grid-template-columns: 1fr minmax(14rem, 16rem) 1fr;
   }
 
   .half {
@@ -393,9 +553,15 @@
     grid-template-columns:
       minmax(var(--card-min), 1fr) var(--link-w)
       minmax(calc(var(--card-min) + 1rem), 1.1fr) var(--link-w)
-      minmax(var(--card-min), 1fr) var(--link-w)
       minmax(var(--card-min), 1fr) var(--link-w);
     grid-template-rows: auto repeat(4, 1fr);
+  }
+
+  /* Specific enough to beat `.col-head`, which sets its own display. */
+  @media (min-width: 1024px) {
+    .half > .narrow-only {
+      display: none;
+    }
   }
 
   .half-west {
@@ -462,10 +628,72 @@
     margin-block: 0.35rem;
   }
 
+  /* Equal 1fr rows above and below keep the finals on the bracket's
+     midline, level with the semifinal connectors. */
   .cup-body {
     flex: 1;
+    display: grid;
+    grid-template-rows: 1fr auto 1fr;
+  }
+
+  .cup-top {
+    grid-row: 1;
+    align-self: end;
     display: flex;
+    flex-direction: column;
     align-items: center;
+  }
+
+  .cup-card {
+    display: flex;
+    width: min(100%, 12rem);
+  }
+
+  /* Each final's line rises from the centre of its card into MLS Cup. */
+  .cup-feed {
+    position: relative;
+    align-self: stretch;
+    height: 1.4rem;
+  }
+  .cup-feed > span {
+    position: absolute;
+    inset-block: 0;
+    border-inline-start: 1px solid oklab(100% 0 0 / 0.16);
+  }
+  .cup-feed > span:first-child {
+    inset-inline-start: calc((100% - var(--cf-gap)) / 4);
+  }
+  .cup-feed > span:last-child {
+    inset-inline-end: calc((100% - var(--cf-gap)) / 4);
+  }
+  .cup-feed > span.lit {
+    z-index: 1;
+    border-inline-start-width: 2px;
+    border-color: var(--color-theme-400);
+  }
+
+  .cf-row {
+    grid-row: 2;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--cf-gap);
+    align-items: center;
+  }
+
+  .cf-caption {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + 0.5rem);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--font-condensed);
+    text-align: center;
+  }
+  .cf-caption-now .col-title {
+    color: var(--color-text-primary);
+    font-weight: 500;
   }
 
   /* ── Connectors ─────────────────────────────────────────────────────── */
@@ -534,7 +762,29 @@
   }
 
   /* ── Narrow: one conference at a time, flowing into MLS Cup ─────────── */
-  @media (max-width: 1199px) {
+  @media (max-width: 1023px) {
+    .wide-only {
+      display: none;
+    }
+    .half {
+      grid-template-columns:
+        minmax(var(--card-min), 1fr) var(--link-w)
+        minmax(calc(var(--card-min) + 1rem), 1.1fr) var(--link-w)
+        minmax(var(--card-min), 1fr) var(--link-w)
+        minmax(var(--card-min), 1fr) var(--link-w);
+    }
+    .cup-body {
+      display: flex;
+      align-items: center;
+    }
+    .cup-top {
+      align-self: center;
+      width: 100%;
+    }
+    .cup-card {
+      width: 100%;
+    }
+
     .playoffs {
       margin-inline: 0;
     }

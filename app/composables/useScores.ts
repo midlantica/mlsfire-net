@@ -1,4 +1,3 @@
-import { $fetch } from 'ofetch'
 import { LIGAMX_LOGO } from '~/constants/ligamx'
 import { ALL_STAR_TEAMS, TEAM_LOGO } from './useTeamTheme'
 
@@ -315,6 +314,7 @@ export interface WeekData {
   error: string | null
   loaded: boolean
   hiatus: string | null // non-null when this week is inside a hiatus window
+  frozen: boolean // pinned to a finished regular-season week (postseason)
 }
 
 export function useScores() {
@@ -327,6 +327,7 @@ export function useScores() {
       error: null,
       loaded: false,
       hiatus: null,
+      frozen: false,
     },
     this: {
       matches: [],
@@ -335,6 +336,7 @@ export function useScores() {
       error: null,
       loaded: false,
       hiatus: null,
+      frozen: false,
     },
     next: {
       matches: [],
@@ -343,6 +345,7 @@ export function useScores() {
       error: null,
       loaded: false,
       hiatus: null,
+      frozen: false,
     },
   }))
 
@@ -371,6 +374,7 @@ export function useScores() {
         w.matches = transformMatches(data)
         w.label = (data._weekLabel as string) || w.label
         w.hiatus = (data._hiatus as string) ?? null
+        w.frozen = !!data._frozen
         w.loaded = true
       }
       // Always update timestamp so user knows we tried

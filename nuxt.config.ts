@@ -1,5 +1,3 @@
-import tailwindcss from '@tailwindcss/vite'
-
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
 
@@ -13,7 +11,6 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()],
     optimizeDeps: {
       include: ['culori'],
     },
@@ -32,7 +29,11 @@ export default defineNuxtConfig({
     },
   },
 
-  css: ['~/assets/css/main.css', '~/assets/css/scrollbar.css'],
+  css: [
+    '~/assets/css/reset.css',
+    '~/assets/css/main.css',
+    '~/assets/css/scrollbar.css',
+  ],
 
   // Use the netlify preset so server/api routes become Netlify Functions
   nitro: {

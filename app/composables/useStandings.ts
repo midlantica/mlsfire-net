@@ -42,7 +42,78 @@ function getStat(
   return stats.find((s) => s.name === name)?.value ?? 0
 }
 
+/**
+ * Turns ESPN's standings payload into sorted conference tables. `strict`
+ * applies today's conference map, which is only right for the current
+ * season — clubs have switched conferences before.
+ */
+function parseConferences(
+  data: Record<string, unknown>,
+  strict: boolean
+): ConferenceStandings[] {
+  const children = (data.children as Array<Record<string, unknown>>) ?? []
+  return children.map((conf) => {
+    const name = conf.name as string
+    const standingsData = conf.standings as Record<string, unknown>
+    const entries =
+      (standingsData?.entries as Array<Record<string, unknown>>) ?? []
+    const seen = new Set<string>()
+    return {
+      name,
+      entries: entries
+        .map((entry) => {
+          const stats =
+            (entry.stats as Array<{ name: string; value: number }>) ?? []
+          return {
+            rank: getStat(stats, 'rank'),
+            rankChange: getStat(stats, 'rankChange'),
+            team: normalizeTeamName(
+              ((entry.team as Record<string, unknown>)
+                ?.displayName as string) ?? '?'
+            ),
+            gp: getStat(stats, 'gamesPlayed'),
+            w: getStat(stats, 'wins'),
+            d: getStat(stats, 'ties'),
+            l: getStat(stats, 'losses'),
+            pts: getStat(stats, 'points'),
+            gf: getStat(stats, 'pointsFor'),
+            ga: getStat(stats, 'pointsAgainst'),
+            gd: getStat(stats, 'pointDifferential'),
+            ppg: getStat(stats, 'ppg'),
+            overall:
+              ((
+                stats.find((s) => s.name === 'overall') as
+                  Record<string, unknown> | undefined
+              )?.summary as string) ?? '',
+            playoff: playoffSpot(
+              (entry.note as Record<string, unknown> | undefined)
+                ?.description as string | undefined
+            ),
+          }
+        })
+        // ESPN's standings API has occasionally returned one conference's
+        // entries polluted with teams from the other conference (or
+        // duplicates). Guard against that by cross-checking our known
+        // conference map and deduping by team name.
+        .filter((e) => {
+          if (
+            strict &&
+            TEAM_CONFERENCE[e.team] &&
+            TEAM_CONFERENCE[e.team] !== name
+          )
+            return false
+          if (seen.has(e.team)) return false
+          seen.add(e.team)
+          return true
+        })
+        .sort((a, b) => a.rank - b.rank),
+    }
+  })
+}
+
 export function useStandings() {
+  // The current season's table — also feeds the conference-rank badges on
+  // match cards, so browsing an older season must never overwrite it.
   const conferences = useState<ConferenceStandings[]>(
     'standings-conferences',
     () => []
@@ -50,71 +121,36 @@ export function useStandings() {
   const loading = useState<boolean>('standings-loading', () => false)
   const error = useState<string | null>('standings-error', () => null)
   const loaded = useState<boolean>('standings-loaded', () => false)
+  const currentSeason = useState<number | null>('standings-season', () => null)
+  /** True once the current season is frozen in the server archive. */
+  const currentFinal = useState<boolean>('standings-final', () => false)
+  const seasons = useState<number[]>('standings-seasons', () => [])
+
+  /** Season picked in the year menu; null = the current season. */
+  const viewSeason = useState<number | null>(
+    'standings-view-season',
+    () => null
+  )
+  const pastSeasons = useState<Record<number, ConferenceStandings[]>>(
+    'standings-past',
+    () => ({})
+  )
+  const pastLoading = useState<boolean>('standings-past-loading', () => false)
 
   /** `force` refetches in the background without flipping `loading`, so the
    *  table stays on screen (no skeleton flash) while fresh data arrives. */
   async function fetchStandings(force = false) {
     if (loading.value || (loaded.value && !force)) return
+    if (force && currentFinal.value) return
     const background = force && loaded.value
     if (!background) loading.value = true
     error.value = null
     try {
       const data = await $fetch<Record<string, unknown>>('/api/standings')
-      const children = (data.children as Array<Record<string, unknown>>) ?? []
-      conferences.value = children.map((conf) => {
-        const name = conf.name as string
-        const standingsData = conf.standings as Record<string, unknown>
-        const entries =
-          (standingsData?.entries as Array<Record<string, unknown>>) ?? []
-        const seen = new Set<string>()
-        return {
-          name,
-          entries: entries
-            .map((entry) => {
-              const stats =
-                (entry.stats as Array<{ name: string; value: number }>) ?? []
-              return {
-                rank: getStat(stats, 'rank'),
-                rankChange: getStat(stats, 'rankChange'),
-                team: normalizeTeamName(
-                  ((entry.team as Record<string, unknown>)
-                    ?.displayName as string) ?? '?'
-                ),
-                gp: getStat(stats, 'gamesPlayed'),
-                w: getStat(stats, 'wins'),
-                d: getStat(stats, 'ties'),
-                l: getStat(stats, 'losses'),
-                pts: getStat(stats, 'points'),
-                gf: getStat(stats, 'pointsFor'),
-                ga: getStat(stats, 'pointsAgainst'),
-                gd: getStat(stats, 'pointDifferential'),
-                ppg: getStat(stats, 'ppg'),
-                overall:
-                  ((
-                    stats.find((s) => s.name === 'overall') as
-                      Record<string, unknown> | undefined
-                  )?.summary as string) ?? '',
-                playoff: playoffSpot(
-                  (entry.note as Record<string, unknown> | undefined)
-                    ?.description as string | undefined
-                ),
-              }
-            })
-            // ESPN's standings API has occasionally returned one conference's
-            // entries polluted with teams from the other conference (or
-            // duplicates). Guard against that by cross-checking our known
-            // conference map and deduping by team name.
-            .filter((e) => {
-              if (TEAM_CONFERENCE[e.team] && TEAM_CONFERENCE[e.team] !== name)
-                return false
-              if (seen.has(e.team)) return false
-              seen.add(e.team)
-              return true
-            })
-            .sort((a, b) => a.rank - b.rank),
-        }
-      })
-
+      conferences.value = parseConferences(data, true)
+      currentSeason.value = (data._season as number) ?? null
+      currentFinal.value = !!data._final
+      seasons.value = (data._seasons as number[]) ?? []
       loaded.value = true
     } catch (e: unknown) {
       // A failed background refresh keeps the table we already have.
@@ -127,7 +163,48 @@ export function useStandings() {
     }
   }
 
-  return { conferences, loading, error, loaded, fetchStandings }
+  const displaySeason = computed(() => viewSeason.value ?? currentSeason.value)
+  const isPastSeason = computed(
+    () => viewSeason.value !== null && viewSeason.value !== currentSeason.value
+  )
+  const viewConferences = computed(() =>
+    isPastSeason.value
+      ? (pastSeasons.value[viewSeason.value!] ?? [])
+      : conferences.value
+  )
+
+  async function selectSeason(year: number) {
+    viewSeason.value = year === currentSeason.value ? null : year
+    if (!isPastSeason.value || pastSeasons.value[year]) return
+    pastLoading.value = true
+    try {
+      const data = await $fetch<Record<string, unknown>>('/api/standings', {
+        query: { season: year },
+      })
+      pastSeasons.value = {
+        ...pastSeasons.value,
+        [year]: parseConferences(data, false),
+      }
+    } catch {
+      if (viewSeason.value === year) viewSeason.value = null
+    } finally {
+      pastLoading.value = false
+    }
+  }
+
+  return {
+    conferences,
+    loading,
+    error,
+    loaded,
+    fetchStandings,
+    seasons,
+    displaySeason,
+    isPastSeason,
+    viewConferences,
+    pastLoading,
+    selectSeason,
+  }
 }
 
 export interface ConferenceBadge {

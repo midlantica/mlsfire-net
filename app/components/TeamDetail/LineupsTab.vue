@@ -5,6 +5,8 @@
     jersey: string
     position: string
     nationality: string
+    nationalityCode: string
+    flag: string
   }
   interface FallbackPlayer {
     id: string
@@ -48,7 +50,16 @@
           <span class="pos-badge">{{ player.position }}</span>
         </div>
         <div class="squads-name">{{ player.displayName }}</div>
-        <div class="squads-nat">{{ player.nationality }}</div>
+        <div class="squads-nat" :title="player.nationality || undefined">
+          <img
+            v-if="player.flag"
+            :src="player.flag"
+            alt=""
+            class="nat-flag"
+            loading="lazy"
+          />
+          <span>{{ player.nationalityCode }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -158,7 +169,7 @@
 
   .squads-wrap--roster .squads-head,
   .squads-wrap--roster .squads-row {
-    grid-template-columns: 2.5rem 4rem 1fr 2.5rem;
+    grid-template-columns: 2.5rem 4rem 1fr 4.25rem;
   }
 
   .squads-num {
@@ -194,13 +205,21 @@
   }
 
   .squads-nat {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     font-size: var(--modal-copy-size);
     font-weight: 200;
     color: oklab(100% 0 0 / 0.5);
     letter-spacing: 0.04em;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  }
+
+  .nat-flag {
+    width: 1.1em;
+    height: 1.1em;
+    object-fit: contain;
+    flex-shrink: 0;
   }
 
   .squads-fallback-wrap {
@@ -242,7 +261,11 @@
 
     .squads-wrap--roster .squads-head,
     .squads-wrap--roster .squads-row {
-      grid-template-columns: 1.75rem 2.75rem 1fr 1.75rem;
+      grid-template-columns: 1.75rem 2.75rem 1fr 4rem;
+    }
+
+    .squads-nat {
+      gap: 0.3rem;
     }
 
     .squads-fallback-note {

@@ -68,6 +68,9 @@
     error: standingsError,
     loaded: standingsLoaded,
     fetchStandings,
+    viewConferences,
+    isPastSeason,
+    pastLoading,
   } = useStandings()
 
   // ── SSR pre-fetch: seed "this week" data + conference standings before
@@ -85,6 +88,7 @@
           weeks.this.matches = transformMatches(data)
           weeks.this.label = (data._weekLabel as string) || weeks.this.label
           weeks.this.hiatus = (data._hiatus as string) ?? null
+          weeks.this.frozen = !!data._frozen
           weeks.this.loaded = true
         }
       } catch {
@@ -480,6 +484,8 @@
     // In the postseason the bracket is the natural landing spot whenever
     // there's nothing left to watch this week.
     const playoffs = playoffsTab.value
+    // The pinned "Final Stretch" tab needs its label before anyone opens it.
+    if (playoffs) void fetchWeek('last')
     if (thisMatches.length === 0) {
       if (playoffs) {
         activeTab.value = 'playoffs'
@@ -636,7 +642,7 @@
         v-else-if="mainTab === 'standings'"
         class="tab-section standings-section"
       >
-        <div v-if="standingsLoading" class="skeleton-list">
+        <div v-if="standingsLoading || pastLoading" class="skeleton-list">
           <div
             v-for="i in 4"
             :key="i"
@@ -649,22 +655,24 @@
           {{ standingsError }}
         </div>
 
-        <template v-else-if="conferences.length">
+        <template v-else-if="viewConferences.length">
           <!-- Desktop: side-by-side -->
           <div class="conferences-grid">
             <StandingsTable
-              v-for="conf in conferences"
+              v-for="conf in viewConferences"
               :key="conf.name"
               :conference="conf"
+              :past="isPastSeason"
               @select-team="openTeamModalFor"
             />
           </div>
 
           <!-- Mobile: tabbed -->
           <div class="conferences-mobile">
+            <p class="conf-season">Season <StandingsSeasonPicker /></p>
             <div class="conf-tabs" role="tablist">
               <button
-                v-for="conf in conferences"
+                v-for="conf in viewConferences"
                 :key="conf.name"
                 class="conf-tab"
                 :class="{ active: confTab === conf.name }"
@@ -679,10 +687,11 @@
               </button>
             </div>
             <StandingsTable
-              v-for="conf in conferences"
+              v-for="conf in viewConferences"
               v-show="confTab === conf.name"
               :key="conf.name"
               :conference="conf"
+              :past="isPastSeason"
               @select-team="openTeamModalFor"
             />
           </div>
@@ -854,6 +863,17 @@
   /* Hide the redundant conf-title heading inside the mobile tabbed view */
   .conferences-mobile :deep(.conf-title) {
     display: none;
+  }
+
+  .conf-season {
+    font-family: var(--font-condensed);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-theme-500);
+    text-align: center;
+    margin: 0.75rem 0 0.25rem;
   }
 
   /* ── Conference tabs (mobile) ───────────────────────────────────────────── */

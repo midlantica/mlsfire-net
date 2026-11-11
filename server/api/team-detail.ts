@@ -10,6 +10,8 @@
  * for 1 hour in a module-level variable.
  */
 
+import { SEASON_YEAR } from '../../app/constants/mls'
+
 const CACHE_TTL_MS = 10 * 60_000
 const LEADERS_TTL_MS = 60 * 60_000
 
@@ -43,6 +45,9 @@ export interface RosterPlayer {
   position: string
   positionName: string
   nationality: string
+  /** Three-letter country code, e.g. "DOM" — fits the narrow Nat column. */
+  nationalityCode: string
+  flag: string
   headshot: string
   starter?: boolean
 }
@@ -100,8 +105,7 @@ async function fetchLeadersBlob(): Promise<RawCategory[]> {
     return leadersBlobCache
   }
 
-  const url =
-    'https://sports.core.api.espn.com/v2/sports/soccer/leagues/usa.1/seasons/2026/types/1/leaders'
+  const url = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/usa.1/seasons/${SEASON_YEAR}/types/1/leaders`
   const raw = await $fetch<Record<string, unknown>>(url)
   const categories = (raw.categories as Array<Record<string, unknown>>) ?? []
 
@@ -168,6 +172,9 @@ export default defineEventHandler(async (event) => {
       const pos = p.position as Record<string, unknown> | undefined
       const headshots = p.headshot as Record<string, unknown> | undefined
       const flag = p.flag as Record<string, unknown> | undefined
+      const citizenship = p.citizenshipCountry as
+        Record<string, unknown> | undefined
+      const nationality = (flag?.alt as string) ?? ''
 
       roster.push({
         id: p.id as string,
@@ -176,7 +183,11 @@ export default defineEventHandler(async (event) => {
         jersey: (p.jersey as string) ?? '',
         position: (pos?.abbreviation as string) ?? (pos?.name as string) ?? '',
         positionName: (pos?.displayName as string) ?? '',
-        nationality: (flag?.alt as string) ?? '',
+        nationality,
+        nationalityCode:
+          (citizenship?.abbreviation as string) ??
+          nationality.slice(0, 3).toUpperCase(),
+        flag: (flag?.href as string) ?? '',
         headshot: (headshots?.href as string) ?? '',
       })
     }

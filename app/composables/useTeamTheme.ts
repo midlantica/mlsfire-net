@@ -168,7 +168,7 @@ export const TEAM_SHORT_NAME: Record<string, string> = {
 }
 
 // ── Slate fallback palette (Tailwind slate in oklch) ─────────────────────────
-// These are the default values written into main.css @theme.
+// These are the default values written into main.css :root.
 const SLATE_PALETTE: Record<string, string> = {
   '50': 'oklch(98.4% 0.003 247.9)',
   '100': 'oklch(96.8% 0.007 247.7)',

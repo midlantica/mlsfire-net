@@ -7,6 +7,8 @@
  * and caches the result for 1 hour.
  */
 
+import { SEASON_YEAR } from '../../app/constants/mls'
+
 interface LeaderEntry {
   rank: number
   athleteId: string
@@ -104,8 +106,7 @@ export default defineEventHandler(async () => {
   }
 
   // ── 1. Fetch season leaders ───────────────────────────────────────────────
-  const leadersUrl =
-    'https://sports.core.api.espn.com/v2/sports/soccer/leagues/usa.1/seasons/2026/types/1/leaders'
+  const leadersUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/usa.1/seasons/${SEASON_YEAR}/types/1/leaders`
 
   const leadersRaw = await $fetch<Record<string, unknown>>(leadersUrl).catch(
     () => null

@@ -1,5 +1,3 @@
-import { $fetch } from 'ofetch'
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface MatchDetailTeam {

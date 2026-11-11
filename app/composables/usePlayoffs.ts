@@ -1,5 +1,5 @@
-import { $fetch } from 'ofetch'
 import {
+  NEXT_SEASON_FIRST_WEEK,
   OFFSEASON_START,
   PLAYOFF_ROUND_DATES,
   PLAYOFF_ROUND_START,
@@ -80,7 +80,11 @@ function todayCT(): string {
 
 function inPlayoffsWindow(): boolean {
   const today = todayCT()
-  return today >= PLAYOFFS_TAB_FROM && today < OFFSEASON_START
+  return today >= PLAYOFFS_TAB_FROM && today < NEXT_SEASON_FIRST_WEEK
+}
+
+function inOffseason(): boolean {
+  return todayCT() >= OFFSEASON_START
 }
 
 /**
@@ -90,10 +94,13 @@ function inPlayoffsWindow(): boolean {
  */
 export function usePlayoffsTab() {
   const active = useState<boolean>('playoffs-tab-active', inPlayoffsWindow)
+  /** MLS Cup week is over — copy talks about next season, not the playoffs. */
+  const offseason = useState<boolean>('playoffs-offseason', inOffseason)
   function recheck() {
     active.value = inPlayoffsWindow()
+    offseason.value = inOffseason()
   }
-  return { active, recheck }
+  return { active, offseason, recheck }
 }
 
 function toTeam(raw: BracketTeamRaw): BracketTeam {

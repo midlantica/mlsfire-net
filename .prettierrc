@@ -4,7 +4,6 @@
   "tabWidth": 2,
   "trailingComma": "es5",
   "vueIndentScriptAndStyle": true,
-  "plugins": ["prettier-plugin-tailwindcss"],
   "overrides": [
     {
       "files": "*.md",

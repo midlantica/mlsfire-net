@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { SEASON_YEAR } from '~/constants/mls'
+  import { PLAYOFFS_SEASON } from '~/constants/mls'
   import type { Match } from '~/composables/useScores'
   import type { BracketTie } from '~/composables/usePlayoffs'
   import { useTimezone } from '~/composables/useTimezone'
@@ -82,7 +82,7 @@
     :class="{ 'cup-open': !!target, 'cup-live': isLive }"
     :role="target ? 'button' : 'group'"
     :tabindex="target ? 0 : undefined"
-    :aria-label="`MLS Cup ${SEASON_YEAR}${target ? ', match details' : ''}`"
+    :aria-label="`MLS Cup ${PLAYOFFS_SEASON}${target ? ', match details' : ''}`"
     @click="open"
     @keydown.self.enter.space.prevent="open"
   >

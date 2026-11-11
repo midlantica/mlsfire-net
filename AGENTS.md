@@ -8,8 +8,8 @@ MLS Fire — a Nuxt 4 (Vue 3) app showing real-time MLS scores, standings, stats
 
 ## Tech Stack
 
-- **Framework**: Nuxt 4.4.6, Vue 3, `<script setup lang="ts">`
-- **Styling**: Tailwind CSS v4 + scoped component CSS. `oklab()` / `oklch()` color functions used throughout.
+- **Framework**: Nuxt 4.6, Vue 3, `<script setup lang="ts">`
+- **Styling**: scoped component CSS on top of `app/assets/css/reset.css` (Tailwind's Preflight, kept after Tailwind was removed) and the variables in `main.css`. No Tailwind — don't add utility classes. `oklab()` / `oklch()` color functions used throughout.
 - **Package manager**: pnpm
 - **Deployment**: Netlify (Nitro preset)
 

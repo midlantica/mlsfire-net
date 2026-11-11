@@ -3,7 +3,12 @@
   import { getTeamColor } from '~/composables/useTeamColors'
   import { TEAM_LOGO } from '~/composables/useTeamTheme'
 
-  const props = defineProps<{ conference: ConferenceStandings }>()
+  // `past` = an archived season: the team modal shows the current squad, so
+  // team links are off rather than mixing seasons.
+  const props = defineProps<{
+    conference: ConferenceStandings
+    past?: boolean
+  }>()
   const emit = defineEmits<{ 'select-team': [team: string] }>()
 
   const hasPlayoffLines = computed(() =>
@@ -35,7 +40,7 @@
 
 <template>
   <div class="standings-wrap">
-    <h3 class="conf-title">{{ conference.name }}</h3>
+    <h3 class="conf-title">{{ conference.name }} <StandingsSeasonPicker /></h3>
     <div class="table-scroll">
       <table class="standings-table">
         <thead>
@@ -83,9 +88,11 @@
               >
             </td>
             <td class="col-team">
-              <button
+              <component
+                :is="past ? 'span' : 'button'"
                 class="team-name-btn"
-                @click="emit('select-team', entry.team)"
+                :class="{ 'is-link': !past }"
+                @click="past || emit('select-team', entry.team)"
               >
                 <span class="team-logo-slot" aria-hidden="true">
                   <img
@@ -104,7 +111,7 @@
                 <span class="team-name-short">{{
                   STANDINGS_SHORT_NAME[entry.team] ?? entry.team
                 }}</span>
-              </button>
+              </component>
             </td>
             <td class="col-rec">{{ entry.overall }}</td>
             <td class="col-num">{{ entry.gp }}</td>
@@ -304,12 +311,14 @@
     color: inherit;
     font-weight: inherit;
     letter-spacing: inherit;
-    cursor: pointer;
     display: inline-flex;
     align-items: center;
     text-decoration: none;
   }
-  .team-name-btn:hover {
+  .team-name-btn.is-link {
+    cursor: pointer;
+  }
+  .team-name-btn.is-link:hover {
     text-decoration: underline;
     text-underline-offset: 0.2em;
     color: var(--color-text-primary);

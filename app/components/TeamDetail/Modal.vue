@@ -17,6 +17,7 @@
   import { slugFromSeasonTypeName } from '~/constants/rounds'
   import { LIGAMX_LOGO } from '~/constants/ligamx'
   import { getStadiumInfo } from '~/constants/venues'
+  import { SEASON_YEAR } from '~/constants/mls'
 
   const props = defineProps<{
     open: boolean
@@ -392,6 +393,8 @@
     position: string
     positionName: string
     nationality: string
+    nationalityCode: string
+    flag: string
     headshot: string
   }
   interface TeamDetailData {
@@ -761,7 +764,7 @@
               :class="{ active: activeTab === 'fixtures' }"
               @click="setTab('fixtures')"
             >
-              2026 Fixtures
+              {{ SEASON_YEAR }} Fixtures
             </button>
           </div>
 
