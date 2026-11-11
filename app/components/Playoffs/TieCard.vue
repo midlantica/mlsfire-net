@@ -163,68 +163,70 @@
     @click="open"
     @keydown.self.enter.space.prevent="open"
   >
-    <div class="tie-meta" :class="{ 'meta-live': isLive }">
-      <span v-if="isLive" class="live-dot" aria-hidden="true" />
-      <span v-html="metaHtml" />
-    </div>
+    <div class="tie-body">
+      <div class="tie-meta" :class="{ 'meta-live': isLive }">
+        <span v-if="isLive" class="live-dot" aria-hidden="true" />
+        <span v-html="metaHtml" />
+      </div>
 
-    <div
-      v-for="slot in slots"
-      :key="slot.side"
-      class="tie-row"
-      :class="{
-        'row-won': slot.won,
-        'row-out': slot.out,
-        'row-fav': slot.fav,
-      }"
-    >
-      <template v-if="slot.team">
-        <span class="seed">{{ slot.team.seed }}</span>
-        <span class="logo" aria-hidden="true">
-          <img v-if="slot.team.logo" :src="slot.team.logo" alt="" />
-        </span>
-        <span class="abbr" :title="slot.team.name">{{ slot.team.abbr }}</span>
-        <span v-if="slot.score != null" class="score"
-          >{{ slot.score
-          }}<span v-if="slot.pens != null" class="pens"
-            >({{ slot.pens }})</span
-          ></span
-        >
-      </template>
-      <template v-else>
-        <span class="seed" />
-        <span class="logo logo-pending" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3Z"
-            />
-          </svg>
-        </span>
-        <span
-          class="abbr abbr-pending"
-          :title="slot.options.map((o) => o.name).join(' or ') || undefined"
-          >{{
-            slot.options.length
-              ? slot.options.map((o) => o.abbr).join('/')
-              : 'TBD'
-          }}</span
-        >
-      </template>
-    </div>
-
-    <div v-if="pills.length" class="tie-games">
-      <button
-        v-for="pill in pills"
-        :key="pill.game.id"
-        type="button"
-        class="pill"
-        :class="`pill-${pill.state}`"
-        :aria-label="pill.label"
-        :title="pill.label"
-        @click.stop="emit('open-game-detail', pill.game)"
+      <div
+        v-for="slot in slots"
+        :key="slot.side"
+        class="tie-row"
+        :class="{
+          'row-won': slot.won,
+          'row-out': slot.out,
+          'row-fav': slot.fav,
+        }"
       >
-        {{ pill.text }}<span v-if="pill.pens" class="pill-pens">p</span>
-      </button>
+        <template v-if="slot.team">
+          <span class="seed">{{ slot.team.seed }}</span>
+          <span class="logo" aria-hidden="true">
+            <img v-if="slot.team.logo" :src="slot.team.logo" alt="" />
+          </span>
+          <span class="abbr" :title="slot.team.name">{{ slot.team.abbr }}</span>
+          <span v-if="slot.score != null" class="score"
+            >{{ slot.score
+            }}<span v-if="slot.pens != null" class="pens"
+              >({{ slot.pens }})</span
+            ></span
+          >
+        </template>
+        <template v-else>
+          <span class="seed" />
+          <span class="logo logo-pending" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3Z"
+              />
+            </svg>
+          </span>
+          <span
+            class="abbr abbr-pending"
+            :title="slot.options.map((o) => o.name).join(' or ') || undefined"
+            >{{
+              slot.options.length
+                ? slot.options.map((o) => o.abbr).join('/')
+                : 'TBD'
+            }}</span
+          >
+        </template>
+      </div>
+
+      <div v-if="pills.length" class="tie-games">
+        <button
+          v-for="pill in pills"
+          :key="pill.game.id"
+          type="button"
+          class="pill"
+          :class="`pill-${pill.state}`"
+          :aria-label="pill.label"
+          :title="pill.label"
+          @click.stop="emit('open-game-detail', pill.game)"
+        >
+          {{ pill.text }}<span v-if="pill.pens" class="pill-pens">p</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -234,15 +236,18 @@
     container-type: inline-size;
     direction: ltr;
     font-family: var(--font-condensed);
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
     width: 100%;
     min-width: 0;
     padding: 0.35rem 0.45rem 0.45rem;
     border-radius: 0.375rem;
     border: 1px solid oklab(100% 0 0 / 0.07);
     background: oklab(100% 0 0 / 0.07);
+  }
+
+  .tie-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
   }
 
   .tie-open {
@@ -422,6 +427,37 @@
     gap: 0.2rem;
     margin-top: 0.15rem;
     padding-left: 0.85rem;
+  }
+
+  /* Roomy cards: stack the game strip beside the two team rows instead of
+     under them, which keeps Round One — and so the whole bracket — shorter. */
+  @container (min-width: 8.75rem) {
+    .tie-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 0.3rem;
+      row-gap: 0.2rem;
+    }
+    .tie-meta {
+      grid-column: 1 / -1;
+    }
+    .tie-row {
+      grid-column: 1;
+    }
+    .tie-games {
+      grid-column: 2;
+      grid-row: 2 / span 2;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      justify-content: center;
+      gap: 0.1rem;
+      margin-top: 0;
+      padding-left: 0;
+    }
+    .tie-games .pill {
+      padding-block: 0.1rem 0.12rem;
+      text-align: center;
+    }
   }
 
   /* Tight columns (narrow mirrored bracket, phones): drop the indent, and
