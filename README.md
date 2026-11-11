@@ -1,174 +1,166 @@
 # ⚽ MLS Fire
 
-A fast, clean MLS Fire app built with **Nuxt 4** and deployed on **Netlify**. Live scores, standings, stats, team schedules, rosters, and head-to-head history — all in one place.
+Live MLS scores, standings, stats and the MLS Cup Playoffs bracket — fast, mobile-friendly, and themed in your club's colours. Built with **Nuxt 4** and deployed on **Netlify**.
 
 🔗 **Live:** [mlsfire.net](https://mlsfire.net)
+
+![MLS Cup Playoffs bracket](docs/screenshots/playoffs.webp)
+
+| Scores                                           | Match detail                                             |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| ![Scores wall](docs/screenshots/scores.webp)     | ![Match detail modal](docs/screenshots/game-detail.webp) |
+| **Team detail**                                  | **Standings**                                            |
+| ![Team modal](docs/screenshots/team-detail.webp) | ![Conference standings](docs/screenshots/standings.webp) |
+
+![Scores, bracket and standings on a phone](docs/screenshots/mobile.webp)
 
 ---
 
 ## Features
 
-- **Live Scores** — Real-time match scores with live clock, halftime, and full-time indicators. Auto-polls every 30 seconds when live matches are active.
-- **This / Last / Next Week** — Tabbed week navigation that auto-selects the most relevant week (live > upcoming > last completed).
-- **Standings** — Eastern and Western Conference tables, side-by-side on desktop, tabbed on mobile.
-- **Stats** — League-wide player stat leaders.
-- **Game Detail Modal** — Per-match deep dive with tabs for:
-  - Match stats (possession, shots, corners, fouls, etc.)
-  - Player leaders
-  - Lineups / rosters
-  - Head-to-head history
-- **Team Detail Modal** — Pick your team and get a dedicated view with:
-  - Schedule (past results + upcoming fixtures)
-  - Team stat leaders
-  - Roster / lineups
-  - Full 2026 season fixtures grouped by month
-- **Team-to-Team Navigation** — Click any team name or logo anywhere in the app to open that team's modal.
-- **Timezone-aware** — All kickoff times displayed in the user's local timezone.
-- **Browser history support** — Back/forward button works correctly with modal navigation.
-- **Responsive** — Fully mobile-optimized with adaptive layouts throughout.
+**Scores**
+
+- Every match of the week, grouped by day and kickoff time, with past days collapsing as the week moves on.
+- Live clock, halftime and full-time states. Polls every 30 seconds while a game is live, and refreshes when you come back to the tab.
+- Fire badges flag the matches worth watching: 🔥 when both teams are winning and closely matched, a blue flame for a derby or two evenly matched underdogs.
+- Conference-position badges (`3E`, `7W`) on every team.
+- Leagues Cup fixtures appear alongside MLS games.
+- Any time zone, picked from the header.
+
+**MLS Cup Playoffs**
+
+- Full mirrored bracket — Wild Card, best-of-3 Round One, Conference Semifinals and Finals feeding into MLS Cup.
+- Live scores in the bracket; matchups open a preview even before ESPN schedules the game.
+- A champion banner once MLS Cup is decided.
+- One conference at a time on narrow screens.
+
+**Standings & stats**
+
+- Eastern and Western Conference tables with playoff cut lines.
+- A season picker for past years' final standings.
+- League leaders for goals, assists, accurate passes, saves and cards.
+
+**Match & team detail**
+
+- Match modal: stats, player leaders, lineups, head-to-head history, goals and cards.
+- Team modal: recent results and next game, season leaders, roster with nationalities, and the full fixture list.
+- Click any team anywhere to open its modal; back/forward navigation works between modals.
+
+**Your club**
+
+- Pick **My Team** and the whole site re-themes itself in that club's colours.
+
+**Between seasons**
+
+- Once the regular season ends, the last two weeks stay up ("Final Stretch" and "Decision Day") alongside the bracket until the next season starts — frozen to JSON, so they no longer depend on the API.
 
 ---
 
-## Tech Stack
+## Tech stack
 
-| Layer           | Technology                                                         |
-| --------------- | ------------------------------------------------------------------ |
-| Framework       | [Nuxt 4](https://nuxt.com) (Vue 3, `<script setup>`)               |
-| Styling         | [Tailwind CSS v4](https://tailwindcss.com) + scoped component CSS  |
-| Color           | `oklab()` / `oklch()` perceptual color throughout                  |
-| Team palettes   | [culori](https://culorijs.org) — dynamic per-team color generation |
-| Server routes   | Nuxt server API (`server/api/`) → Netlify Functions                |
-| Data source     | ESPN public API (unofficial)                                       |
-| Deployment      | [Netlify](https://netlify.com) (Nitro `netlify` preset)            |
-| Package manager | [pnpm](https://pnpm.io)                                            |
+| Layer           | Technology                                                                 |
+| --------------- | -------------------------------------------------------------------------- |
+| Framework       | [Nuxt 4](https://nuxt.com) (Vue 3, `<script setup lang="ts">`)             |
+| Styling         | Scoped component CSS on a small reset — no CSS framework                   |
+| Colour          | `oklab()` / `oklch()` throughout                                           |
+| Team palettes   | [culori](https://culorijs.org) — per-club palettes with contrast checks    |
+| Server routes   | Nuxt server API (`server/api/`) → Netlify Functions                        |
+| Data            | ESPN's public (unofficial) API, plus frozen JSON for finished seasons      |
+| Analytics       | Self-hosted page views in [Netlify Blobs](https://docs.netlify.com/blobs/) |
+| Deployment      | [Netlify](https://netlify.com) (Nitro `netlify` preset)                    |
+| Package manager | [pnpm](https://pnpm.io)                                                    |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 app/
-├── assets/css/          # Global styles (main, scrollbar, theme)
+├── assets/css/          reset, global variables, scrollbar
 ├── components/
-│   ├── AppHeader.vue              # Site header + timezone picker
-│   ├── AppFooter.vue              # Footer
-│   ├── GameBlock.vue              # Match card used in schedule lists
-│   ├── GameDetailModal.vue        # Full match detail modal (orchestration)
-│   ├── GameDetailStatsTab.vue     # Match stats tab (possession, shots, etc.)
-│   ├── GameDetailLeadersTab.vue   # Player leaders tab
-│   ├── GameDetailLineupsTab.vue   # Lineups / rosters tab
-│   ├── GameDetailH2hTab.vue       # Head-to-head history tab
-│   ├── HiatusBanner.vue           # FIFA World Cup 2026 hiatus notice
-│   ├── MatchCard.vue              # Compact match card for scores wall
-│   ├── TeamDetailModal.vue        # Team detail modal (schedule/leaders/fixtures)
-│   ├── ScoresSection.vue          # Main scores wall
-│   ├── StandingsTable.vue         # Conference standings table
-│   ├── StatsSection.vue           # League stat leaders
-│   ├── TeamPicker.vue             # My Team selector widget
-│   └── TzPicker.vue               # Timezone selector
-├── constants/
-│   └── mls.ts               # Shared config (hiatus dates, etc.)
-├── composables/
-│   ├── useMatchDetail.ts    # Match detail data + odds helpers
-│   ├── useMatchView.ts      # Match display helpers
-│   ├── useTeamTheme.ts      # Team metadata, logos, palette builder
-│   ├── useScores.ts         # Scores data + week management
-│   ├── useStandings.ts      # Standings data
-│   ├── useStats.ts          # League stats data
-│   ├── useTeamColors.ts     # Team primary color map
-│   └── useTimezone.ts       # User timezone detection + persistence
-└── pages/
-    └── index.vue            # Root page — modal orchestration + routing
+│   ├── GameDetail/      match modal + Stats / Leaders / Lineups / H2H tabs
+│   ├── TeamDetail/      team modal + Schedule / Leaders / Lineups / Fixtures tabs
+│   ├── Playoffs/        bracket, tie and MLS Cup cards
+│   ├── ScoresSection.vue, StandingsTable.vue, StatsSection.vue, …
+├── composables/         data fetching + typed state (useScores, useStandings, usePlayoffs, …)
+├── constants/mls.ts     season dates and flags — the one place to update each season
+└── pages/               index (the app), admin (analytics), preview (dev tool)
 
-server/api/
-├── match-detail.ts   # /api/match-detail?eventId=
-├── schedule.ts       # /api/schedule?teamId=
-├── scores.ts         # /api/scores?week=this|last|next
-├── standings.ts      # /api/standings
-├── stats.ts          # /api/stats
-└── team-detail.ts    # /api/team-detail?teamId=
+server/
+├── api/                 scores, standings, stats, playoffs, match-detail, team-detail, schedule, …
+├── assets/              frozen standings and match weeks for finished seasons
+├── middleware/          analytics + admin auth
+└── utils/               bracket builder, season records, matchup previews, …
+
+netlify/functions/       scheduled score-API health check
+scripts/                 data checks and season archiving
 ```
 
 ---
 
-## Getting Started
+## Getting started
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org) 20+
-- [pnpm](https://pnpm.io) 10+
-
-### Install
+Requires [Node.js](https://nodejs.org) 22 and [pnpm](https://pnpm.io) 10.
 
 ```bash
 git clone https://github.com/midlantica/mlsfire-net.git
 cd mlsfire-net
 pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-### Dev server
+| Command                         | What it does                                                                |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `pnpm dev`                      | Dev server on port 3000                                                     |
+| `pnpm build` / `pnpm preview`   | Production build and local preview                                          |
+| `pnpm format`                   | Prettier                                                                    |
+| `pnpm check:data`               | Compares team, venue and season data against ESPN; smoke-tests the live API |
+| `pnpm archive:standings <year>` | Freezes a finished season's final standings                                 |
+| `pnpm archive:week <monday>`    | Freezes a finished week of matches (needs `pnpm dev` running)               |
 
-```bash
-pnpm dev
-```
+### Season changeover
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### Build
-
-```bash
-pnpm build
-```
-
-### Preview production build
-
-```bash
-pnpm preview
-```
+Season dates live in `app/constants/mls.ts`. After Decision Day, archive the final standings and the last two weeks; when the next schedule is published, set the next season's dates; in opening week, bump `SEASON_YEAR`. The full checklist is in [CLAUDE.md](CLAUDE.md#season-changeover-checklist).
 
 ---
 
 ## Deployment
 
-The app is configured for **Netlify** via the Nitro `netlify` preset. All `server/api/` routes are automatically deployed as Netlify Functions.
+Netlify builds with the Nitro `netlify` preset (`netlify.toml` is included); every `server/api/` route becomes a Netlify Function. Push to the connected repo to deploy.
 
-```toml
-# netlify.toml is included — no extra configuration needed
-```
+### Environment variables
 
-Push to your connected Netlify repo and it deploys automatically.
+Set these in **Netlify → Project configuration → Environment variables**. `.env.example` lists the same names for local setup. Never commit their values.
 
----
+| Variable                | Used for                                                     |
+| ----------------------- | ------------------------------------------------------------ |
+| `ADMIN_PASSWORD`        | HTTP Basic Auth for the `/admin` analytics dashboard         |
+| `ANALYTICS_EXCLUDE_IPS` | Optional — comma-separated IPs left out of analytics (yours) |
+| `SITE_URL`              | Origin the health check calls, e.g. `https://mlsfire.net`    |
+| `RESEND_API_KEY`        | Email alerts via [Resend](https://resend.com)                |
+| `ALERT_EMAIL_FROM`      | Sender — must use a domain verified in Resend                |
+| `ALERT_EMAIL_TO`        | Where alerts go                                              |
 
-## Score API monitoring and alerts
+### Score API monitoring
 
-`netlify/functions/score-health.ts` is a Netlify Scheduled Function that runs every 10 minutes. It requests the deployed `/api/scores?week=this` route and raises an incident only when the API response is unavailable, malformed, or reports an upstream data failure. A valid empty schedule is healthy, so legitimate breaks in play do not alert.
+`netlify/functions/score-health.ts` is a scheduled function that runs every 10 minutes. It calls the deployed `/api/scores?week=this` and opens an incident only when the response is unavailable, malformed or reports an upstream failure — an empty week during a break is healthy.
 
-Alerts use Resend for email:
-
-- An email is sent on the first failed check, then at most once every six hours while the incident remains open.
-- A recovery email is sent after the endpoint becomes healthy.
-- Each scheduled check writes an actionable status message to the Netlify Function logs, including a `NEXT STEP` when a check or alert delivery fails.
-
-Set these environment variables in **Netlify → Project configuration → Environment variables** for the production deploy. Do not commit their values.
-
-```text
-SITE_URL=https://mlsfire.net
-RESEND_API_KEY=re_...
-ALERT_EMAIL_FROM=MLS Fire Alerts <alerts@your-verified-domain.com>
-ALERT_EMAIL_TO=you@example.com
-```
-
-`ALERT_EMAIL_FROM` must use a domain verified in Resend. View operational messages in **Netlify → Logs → Functions**; function logs support diagnosis but do not replace the email alert. `.env.example` contains the same variable names for local setup without secrets.
+- An alert email goes out on the first failure, then at most every six hours while the incident stays open.
+- A recovery email follows once the endpoint is healthy again.
+- Every run logs a status line to **Netlify → Logs → Functions**, with a `NEXT STEP` when something fails.
 
 ---
 
-## Data Source
+## Data source
 
-All match data is fetched from ESPN's public (unofficial) API endpoints. No API key is required. The server-side API routes in `server/api/` act as a proxy layer, normalizing the ESPN responses into clean typed shapes consumed by the frontend composables.
+Match data comes from ESPN's public (unofficial) API — no key required. The browser never calls ESPN directly: the routes in `server/api/` proxy, cache and normalise the responses into typed shapes for the composables. Finished seasons are served from frozen JSON in `server/assets/`.
 
 ---
+
+## Disclaimer
+
+MLS Fire is an unofficial fan site. It is not affiliated with, endorsed by, or sponsored by Major League Soccer. The MLS name, crest and team logos are trademarks of their respective owners.
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Drew Harper. Team names and logos are not covered — see the disclaimer above.
