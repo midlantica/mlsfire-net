@@ -150,6 +150,7 @@
     statusClock?: string
     isHome: boolean
     seasonSlug: string | null
+    timeTbd: boolean
   }
 
   const scheduleEvents = ref<ScheduleEvent[]>([])
@@ -252,6 +253,7 @@
       statusClock: (status?.displayClock as string) || undefined,
       isHome,
       seasonSlug,
+      timeTbd: comp.timeValid === false,
     }
   }
 
@@ -346,6 +348,7 @@
       // The team-schedule feed's note is only the leg number ("Game 1"), not
       // the series state the scoreboard feed provides — so leave it unset.
       seriesNote: null,
+      timeTbd: evt.timeTbd,
     }
   }
 

@@ -43,7 +43,7 @@
     stopPolling,
     clear,
   } = useMatchDetail()
-  const { iana, formatTimeHtml } = useTimezone()
+  const { iana, kickoffTimeHtml } = useTimezone()
 
   function isLiveOrHT(m: Match | null) {
     return m?.status.code === 'live' || m?.status.code === 'ht'
@@ -150,12 +150,14 @@
         timeZone: iana.value,
       })
       .toUpperCase()
-    const time = d.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'short',
-      timeZone: iana.value,
-    })
+    const time = props.match.timeTbd
+      ? 'TIME TBD'
+      : d.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short',
+          timeZone: iana.value,
+        })
     const year = d.toLocaleDateString('en-US', {
       year: 'numeric',
       timeZone: iana.value,
@@ -179,7 +181,7 @@
   // Kickoff time for mobile clock block (pre-match)
   const kickoffLabel = computed(() => {
     if (props.match?.windowLabel) return 'TBD'
-    return props.match?.date ? formatTimeHtml(props.match.date) : ''
+    return props.match?.date ? kickoffTimeHtml(props.match) : ''
   })
 
   // ── Local clock ticker for mobile clock block (mirrors GameBlock logic) ──────

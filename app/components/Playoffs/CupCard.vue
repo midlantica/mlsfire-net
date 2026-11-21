@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { PLAYOFFS_SEASON } from '~/constants/mls'
+  import { MLS_CUP_DATE, PLAYOFFS_SEASON } from '~/constants/mls'
   import type { Match } from '~/composables/useScores'
   import type { BracketTie } from '~/composables/usePlayoffs'
   import { useTimezone } from '~/composables/useTimezone'
@@ -7,13 +7,20 @@
   const props = defineProps<{
     tie: BracketTie
     favorite?: string | null
+    /** The gold "MLS Cup Final" card with the trophy, for the wide bracket. */
+    featured?: boolean
   }>()
+
+  const cupDay = new Date(`${MLS_CUP_DATE}T12:00:00Z`).toLocaleDateString(
+    'en-US',
+    { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }
+  )
 
   const emit = defineEmits<{
     'open-game-detail': [match: Match]
   }>()
 
-  const { formatTimeHtml, iana } = useTimezone()
+  const { kickoffTimeHtml, iana } = useTimezone()
 
   const game = computed<Match | null>(() => props.tie.games[0] ?? null)
   const target = computed(() => game.value ?? props.tie.preview)
@@ -24,7 +31,7 @@
   const metaHtml = computed(() => {
     const g = game.value
     if (props.tie.winner) return 'Final'
-    if (!g) return 'Time TBD'
+    if (!g) return props.featured ? `${cupDay} · Time TBD` : 'Time TBD'
     if (g.status.code === 'ht') return 'HT'
     if (g.status.code === 'live') return `Live ${g.status.clock ?? ''}`
     if (g.status.code === 'ns') {
@@ -34,7 +41,7 @@
         day: 'numeric',
         timeZone: iana.value,
       })
-      return `${day}, ${formatTimeHtml(g.date)}`
+      return `${day}, ${kickoffTimeHtml(g)}`
     }
     return 'Final'
   })
@@ -79,14 +86,19 @@
 <template>
   <div
     class="cup"
-    :class="{ 'cup-open': !!target, 'cup-live': isLive }"
+    :class="{
+      'cup-open': !!target,
+      'cup-live': isLive,
+      'cup-featured': featured,
+    }"
     :role="target ? 'button' : 'group'"
     :tabindex="target ? 0 : undefined"
     :aria-label="`MLS Cup ${PLAYOFFS_SEASON}${target ? ', match details' : ''}`"
     @click="open"
     @keydown.self.enter.space.prevent="open"
   >
-    <svg class="trophy" viewBox="0 0 24 24" aria-hidden="true">
+    <p v-if="featured" class="cup-title"><span>MLS Cup Final</span></p>
+    <svg v-else class="trophy" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M7 3.5h10V9a5 5 0 0 1-10 0V3.5Z" />
       <path
         d="M17 5.5h2.25a1.75 1.75 0 0 1 0 3.5H17M7 5.5H4.75a1.75 1.75 0 0 0 0 3.5H7"
@@ -99,7 +111,10 @@
         v-for="s in sides"
         :key="s.side"
         class="cup-side"
-        :class="{ 'side-won': s.won, 'side-out': s.out, 'side-fav': s.fav }"
+        :class="[
+          `side-${s.side}`,
+          { 'side-won': s.won, 'side-out': s.out, 'side-fav': s.fav },
+        ]"
       >
         <span class="cup-logo" aria-hidden="true">
           <img v-if="s.team?.logo" :src="s.team.logo" alt="" />
@@ -126,6 +141,15 @@
         >
         <span v-if="s.won" class="cup-champ">Champions</span>
       </div>
+      <img
+        v-if="featured"
+        class="cup-trophy"
+        src="/mls-cup-trophy.webp"
+        alt=""
+        width="183"
+        height="260"
+        decoding="async"
+      />
     </div>
 
     <div class="cup-meta" :class="{ 'meta-live': isLive }" v-html="metaHtml" />
@@ -292,5 +316,128 @@
   .meta-live {
     color: var(--color-text-primary);
     font-weight: 500;
+  }
+
+  /* ── Featured: the gold MLS Cup Final card ─────────────────────────── */
+  /* The border is a metallic gradient painted under a padding-box fill. */
+  .cup-featured {
+    gap: 0.4rem;
+    padding: 0.7rem 0.6rem 0.75rem;
+    border-color: transparent;
+    border-radius: 0.625rem;
+    background:
+      radial-gradient(
+          60% 55% at 50% 52%,
+          oklch(84% 0.11 88 / 0.22),
+          transparent 70%
+        )
+        padding-box,
+      linear-gradient(180deg, oklch(29% 0.05 82), oklch(18% 0.035 74))
+        padding-box,
+      linear-gradient(
+          140deg,
+          oklch(94% 0.09 95),
+          oklch(70% 0.12 78) 35%,
+          oklch(90% 0.1 92) 62%,
+          oklch(62% 0.11 72)
+        )
+        border-box;
+    box-shadow:
+      0 12px 32px -12px oklch(78% 0.12 85 / 0.4),
+      inset 0 1px 0 oklch(96% 0.05 95 / 0.22);
+    transition: box-shadow 0.2s;
+  }
+
+  .cup-featured.cup-open:hover,
+  .cup-featured.cup-live {
+    border-color: transparent;
+    box-shadow:
+      0 12px 38px -8px oklch(80% 0.13 86 / 0.6),
+      inset 0 1px 0 oklch(96% 0.05 95 / 0.3);
+  }
+
+  .cup-featured:focus-visible {
+    outline-color: oklch(86% 0.11 88);
+  }
+
+  .cup-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .cup-title span {
+    margin-inline-end: -0.16em;
+    white-space: nowrap;
+    background: linear-gradient(180deg, oklch(96% 0.07 95), oklch(78% 0.13 82));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .cup-title::before,
+  .cup-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, oklch(82% 0.11 86 / 0.7));
+  }
+
+  .cup-title::after {
+    background: linear-gradient(90deg, oklch(82% 0.11 86 / 0.7), transparent);
+  }
+
+  .cup-featured .cup-teams {
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .cup-featured .side-top {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cup-featured .side-bottom {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .cup-trophy {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    height: 6.75rem;
+    filter: drop-shadow(0 6px 10px oklch(0% 0 0 / 0.45));
+  }
+
+  .cup-featured .cup-logo svg {
+    stroke: oklch(82% 0.1 86 / 0.45);
+  }
+
+  .cup-featured .cup-abbr-pending {
+    color: oklch(88% 0.07 88);
+  }
+
+  .cup-featured .cup-options {
+    color: oklch(82% 0.06 86 / 0.75);
+  }
+
+  .cup-featured .cup-champ {
+    color: oklch(88% 0.12 88);
+  }
+
+  .cup-featured .cup-meta {
+    color: oklch(90% 0.05 90 / 0.85);
+  }
+
+  .cup-featured .meta-live {
+    color: oklch(97% 0.03 95);
   }
 </style>

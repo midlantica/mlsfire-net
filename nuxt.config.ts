@@ -131,4 +131,11 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true,
   },
+
+  // Nuxt 4.6.4 resolves an unset `devServer.host` to `{}`, which crashes
+  // `nuxt dev` ("options.hostname.toLowerCase is not a function"). Drop this
+  // once a Nuxt release fixes the resolver.
+  devServer: {
+    host: 'localhost',
+  },
 })

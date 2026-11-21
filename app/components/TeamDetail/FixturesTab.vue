@@ -18,6 +18,7 @@
     statusCode: 'ns' | 'ft' | 'live' | 'ht'
     statusClock?: string
     seasonSlug: string | null
+    timeTbd: boolean
   }
 
   interface FixtureMonth {
@@ -202,7 +203,9 @@
                 >
               </template>
               <template v-else>
-                <span class="fx-time">{{ fixtureTime(evt.date) }}</span>
+                <span class="fx-time">{{
+                  evt.timeTbd ? 'TBD' : fixtureTime(evt.date)
+                }}</span>
               </template>
             </div>
             <component

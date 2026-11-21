@@ -6,13 +6,15 @@
   const props = defineProps<{
     tie: BracketTie
     favorite?: string | null
+    /** Silver title above the matchup, e.g. "West Conf. Final". */
+    heading?: string
   }>()
 
   const emit = defineEmits<{
     'open-game-detail': [match: Match]
   }>()
 
-  const { formatTimeHtml, iana } = useTimezone()
+  const { kickoffTimeHtml, iana } = useTimezone()
 
   const isOn = (m: Match) => m.status.code === 'live' || m.status.code === 'ht'
 
@@ -54,7 +56,7 @@
     if (game.status.code === 'ht') return 'HT'
     if (game.status.code === 'live') return `Live ${game.status.clock ?? ''}`
     if (game.status.code === 'ns')
-      return `${shortDate(game.date)}, ${formatTimeHtml(game.date)}`
+      return `${shortDate(game.date)}, ${kickoffTimeHtml(game)}`
     return 'Final'
   })
 
@@ -156,6 +158,7 @@
       'tie-live': isLive,
       'tie-open': !!target,
       'tie-decided': !!tie.winner,
+      'tie-featured': !!heading,
     }"
     :role="isButton ? 'button' : 'group'"
     :tabindex="isButton ? 0 : undefined"
@@ -164,6 +167,7 @@
     @keydown.self.enter.space.prevent="open"
   >
     <div class="tie-body">
+      <p v-if="heading" class="tie-heading">{{ heading }}</p>
       <div class="tie-meta" :class="{ 'meta-live': isLive }">
         <span v-if="isLive" class="live-dot" aria-hidden="true" />
         <span v-html="metaHtml" />
@@ -262,6 +266,51 @@
   .tie:focus-visible {
     outline: 2px solid var(--color-theme-400);
     outline-offset: 2px;
+  }
+
+  /* Headed cards (the wide bracket's conference finals) are silver, a step
+     below the gold MLS Cup card. */
+  .tie-featured {
+    padding: 0.5rem 0.55rem 0.55rem;
+    border-color: oklab(100% 0 0 / 0.18);
+    background:
+      radial-gradient(
+        120% 70% at 50% 0%,
+        oklab(100% 0 0 / 0.08),
+        transparent 70%
+      ),
+      oklab(100% 0 0 / 0.07);
+    box-shadow: inset 0 1px 0 oklab(100% 0 0 / 0.08);
+  }
+
+  .tie-featured.tie-open:hover {
+    border-color: oklab(100% 0 0 / 0.32);
+  }
+
+  .tie-heading {
+    margin-bottom: 0.2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
+    background: linear-gradient(
+      180deg,
+      oklch(97% 0.005 250),
+      oklch(74% 0.02 250)
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  @container (max-width: 7.75rem) {
+    .tie-heading {
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+    }
   }
 
   .tie-live {

@@ -8,7 +8,7 @@
     hideTime?: boolean // hide kickoff time from centre (By Time mode — time is in slot heading)
   }>()
 
-  const { formatTimeHtml, iana } = useTimezone()
+  const { kickoffTimeHtml, iana } = useTimezone()
 
   // 🔥 shown only when both teams are genuinely elite — top ~15% of matchups
   const isHot = computed(() => props.match.qualityScore >= 50)
@@ -25,7 +25,7 @@
   })
 
   // Kickoff time formatted in the user's selected timezone (HTML with styled AM/PM)
-  const kickoffLabel = computed(() => formatTimeHtml(props.match.date))
+  const kickoffLabel = computed(() => kickoffTimeHtml(props.match))
 
   const dayDateLabel = computed(() => {
     if (!props.match.date) return ''

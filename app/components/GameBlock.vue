@@ -20,7 +20,7 @@
     'open-game-detail': [match: Match]
   }>()
 
-  const { formatTimeHtml, iana } = useTimezone()
+  const { kickoffTimeHtml, iana } = useTimezone()
   const { badgeByTeam, crossLeagueStrengthFor } = useConferenceBadges()
 
   const homeBadge = computed(() => badgeByTeam.value[props.match.home])
@@ -36,7 +36,7 @@
   const homeDisplayName = computed(() => displayTeamName(props.match.home))
   const awayDisplayName = computed(() => displayTeamName(props.match.away))
 
-  const kickoffLabel = computed(() => formatTimeHtml(props.match.date))
+  const kickoffLabel = computed(() => kickoffTimeHtml(props.match))
 
   const roundInfo = computed(() => getRoundInfo(props.match.seasonSlug))
 

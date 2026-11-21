@@ -99,6 +99,10 @@ export function useTimezone() {
     return ampm ? `${time}<span class="ampm">${ampm}</span>` : time
   }
 
+  function kickoffTimeHtml(match: { date: string; timeTbd?: boolean }): string {
+    return match.timeTbd ? 'TBD' : formatTimeHtml(match.date)
+  }
+
   /** Round ISO date to nearest 30-min slot label in the selected timezone */
   function kickoffKey(iso: string): string {
     const d = new Date(iso)
@@ -128,6 +132,7 @@ export function useTimezone() {
     iana,
     formatTime,
     formatTimeHtml,
+    kickoffTimeHtml,
     kickoffKey,
     kickoffKeyHtml,
   }

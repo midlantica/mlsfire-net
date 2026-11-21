@@ -441,8 +441,11 @@ export function bracketHasLiveGames(events: EspnRecord[]): boolean {
     const type = (evt.status as EspnRecord | undefined)?.type as
       EspnRecord | undefined
     if (type?.state === 'in') return true
+    const comp = (evt.competitions as EspnRecord[] | undefined)?.[0]
     return (
-      type?.state === 'pre' && new Date(evt.date as string).getTime() <= now
+      type?.state === 'pre' &&
+      comp?.timeValid !== false &&
+      new Date(evt.date as string).getTime() <= now
     )
   })
 }

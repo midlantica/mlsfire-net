@@ -341,7 +341,9 @@
       (m) =>
         m.status.code === 'live' ||
         m.status.code === 'ht' ||
-        (m.status.code === 'ns' && new Date(m.date).getTime() <= now)
+        (m.status.code === 'ns' &&
+          !m.timeTbd &&
+          new Date(m.date).getTime() <= now)
     )
   })
 

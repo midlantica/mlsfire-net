@@ -32,6 +32,8 @@ export interface Match {
   seriesNote: string | null // e.g. "CIN leads series 1-0", "Series tied 1-1"
   /** A playoff pairing ESPN hasn't scheduled yet: the round's date window, shown instead of a kickoff. */
   windowLabel?: string
+  /** ESPN has the day but not the kickoff yet (`timeValid: false`) — `date` carries a placeholder time. */
+  timeTbd?: boolean
 }
 
 export type WeekTab = 'last' | 'this' | 'next'
@@ -301,6 +303,7 @@ export function transformMatches(data: Record<string, unknown>): Match[] {
         badge: calcBadge(homeRec, awayRec, homeName, awayName),
         seasonSlug: (season?.slug as string) ?? null,
         seriesNote: isShootoutNote ? null : headline || null,
+        timeTbd: comp.timeValid === false,
       }
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())

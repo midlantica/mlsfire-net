@@ -39,6 +39,7 @@ All colors use `oklab()` or `oklch()` — do not introduce `rgb()`, `hsl()`, or 
 
 - All ESPN API calls go through `server/api/` routes — never fetch ESPN directly from the client.
 - Composables in `app/composables/` handle data fetching and expose typed reactive state.
+- ESPN sends a placeholder kickoff with `competitions[0].timeValid: false` until a time is set (e.g. playoff Game 3s). It surfaces as `Match.timeTbd`. Render kickoffs with `kickoffTimeHtml(match)` from `useTimezone` so these show "TBD", and never count them as overdue for live polling.
 
 ## Structure Notes
 
@@ -64,7 +65,10 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 
 ### Playoffs/ folder (`app/components/Playoffs/`)
 
-- `Bracket.vue` — replaces the "Next" week tab with "MLS Cup Playoffs" from `PLAYOFFS_TAB_FROM` until `NEXT_SEASON_FIRST_WEEK` (`app/constants/mls.ts`). From 1024px wide: mirrored West | MLS Cup | East, with both conference finals under the MLS Cup card. Narrower: one conference at a time (finals back inside the half), scrolling sideways.
+- `Bracket.vue` — replaces the "Next" week tab with "MLS Cup Playoffs" from `PLAYOFFS_TAB_FROM` until `NEXT_SEASON_FIRST_WEEK` (`app/constants/mls.ts`). From 1024px wide: mirrored West | MLS Cup | East. MLS Cup tops the middle column and branches down into both conference finals on the midline; each semifinal elbows into its final from above or below. Narrower: one conference at a time (finals back inside the half), scrolling sideways.
+- `FormatGuide.vue` — "How it works" explainer (round formats, tie-breaks), highlighting the current stage. From 1024px it sits under the conference finals in the MLS Cup column; narrower, below the bracket.
+- `CupCard.vue` `featured` — the gold "MLS Cup Final" card with the trophy (`public/mls-cup-trophy.webp`, cut out from MLS's render). From 1024px it replaces the plain card and rises into the heading row; narrower screens keep the plain card.
+- `TieCard.vue` `heading` — silver title ("West Conf. Final") for the wide bracket's conference finals, which the middle column (up to 20rem) keeps at least as large as a semifinal.
 - `TieCard.vue` / `CupCard.vue` — one matchup each; clicking opens `GameDetailModal`. Before ESPN schedules a set pairing, the card opens a preview match (`matchup-<homeId>-<awayId>`, `windowLabel` instead of a kickoff) that `server/api/match-detail.ts` answers from `server/utils/matchupPreview.ts`.
 - Data: `server/api/playoffs.ts` → `server/utils/playoffBracket.ts` (pure; builds the bracket from ESPN standings seeds plus postseason scoreboard events) → `usePlayoffs()`.
 

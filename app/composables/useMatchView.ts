@@ -123,20 +123,26 @@ export function useMatchView(
     return day?.matches ?? []
   })
 
-  const byTimeGroups = computed((): [string, Match[]][] => {
+  // A placeholder kickoff (`timeTbd`) gets its own "TBD" group after the real slots.
+  function groupBySlot(matches: Match[]): [string, Match[]][] {
     const slotMap = new Map<number, Match[]>()
-    for (const m of selectedDayMatches.value) {
-      const arr = slotMap.get(m.kickoffSlot) ?? []
+    for (const m of matches) {
+      const slot = m.timeTbd ? Number.POSITIVE_INFINITY : m.kickoffSlot
+      const arr = slotMap.get(slot) ?? []
       arr.push(m)
-      slotMap.set(m.kickoffSlot, arr)
+      slotMap.set(slot, arr)
     }
     return [...slotMap.entries()]
       .sort(([a], [b]) => a - b)
       .map(([slot, slotMatches]) => [
-        kickoffKeyHtml(new Date(slot).toISOString()),
+        Number.isFinite(slot)
+          ? kickoffKeyHtml(new Date(slot).toISOString())
+          : 'TBD',
         [...slotMatches].sort((a, b) => b.qualityScore - a.qualityScore),
       ])
-  })
+  }
+
+  const byTimeGroups = computed(() => groupBySlot(selectedDayMatches.value))
 
   const bestMatches = computed(() =>
     [...selectedDayMatches.value].sort(
@@ -149,21 +155,10 @@ export function useMatchView(
   // day headers and time sub-headings, sorted chronologically.
   const weekByDayGroups = computed(
     (): { day: DayTab; slots: [string, Match[]][] }[] => {
-      return dayTabs.value.map((day) => {
-        const slotMap = new Map<number, Match[]>()
-        for (const m of day.matches) {
-          const arr = slotMap.get(m.kickoffSlot) ?? []
-          arr.push(m)
-          slotMap.set(m.kickoffSlot, arr)
-        }
-        const slots: [string, Match[]][] = [...slotMap.entries()]
-          .sort(([a], [b]) => a - b)
-          .map(([slot, slotMatches]) => [
-            kickoffKeyHtml(new Date(slot).toISOString()),
-            [...slotMatches].sort((a, b) => b.qualityScore - a.qualityScore),
-          ])
-        return { day, slots }
-      })
+      return dayTabs.value.map((day) => ({
+        day,
+        slots: groupBySlot(day.matches),
+      }))
     }
   )
 

@@ -256,17 +256,37 @@
               />
             </div>
 
-            <PlayoffsTieCard
+            <!-- Equal gaps keep each semifinal centred on its feeders; on wide
+                 screens the gap facing the midline carries its elbow into the
+                 conference final. -->
+            <div
               v-for="(tie, j) in half.semifinals"
               :key="tie.key"
-              class="slot"
+              class="sf-slot"
               :style="{ gridColumn: 5, gridRow: `${2 * j + 2} / span 2` }"
-              :tie="tie"
-              :favorite="favorite"
-              @open-game-detail="open"
-            />
+            >
+              <span class="sf-gap">
+                <span
+                  v-if="j === 1"
+                  class="elbow elbow-up wide-only"
+                  :class="{ lit: advancing(tie) }"
+                />
+              </span>
+              <PlayoffsTieCard
+                :tie="tie"
+                :favorite="favorite"
+                @open-game-detail="open"
+              />
+              <span class="sf-gap">
+                <span
+                  v-if="j === 0"
+                  class="elbow elbow-down wide-only"
+                  :class="{ lit: advancing(tie) }"
+                />
+              </span>
+            </div>
             <div
-              class="link link-join"
+              class="link link-join narrow-only"
               :style="{ gridColumn: 6, gridRow: '2 / span 4' }"
             >
               <span
@@ -309,33 +329,57 @@
                 PLAYOFF_ROUND_DATES['mls-cup']
               }}</span>
             </div>
-            <!-- Wide: MLS Cup on top, both conference finals centred below it
-                 so the semifinal connectors run straight into them. -->
+            <!-- Wide: MLS Cup up top, branching down into both conference
+                 finals, which sit on the midline between the semifinals. -->
             <div class="cup-body">
               <div class="cup-top">
                 <div class="cup-card">
                   <PlayoffsCupCard
+                    class="wide-only"
+                    featured
+                    :tie="bracket.cup"
+                    :favorite="favorite"
+                    @open-game-detail="open"
+                  />
+                  <PlayoffsCupCard
+                    class="narrow-only"
                     :tie="bracket.cup"
                     :favorite="favorite"
                     @open-game-detail="open"
                   />
                 </div>
                 <div class="cup-feed wide-only" aria-hidden="true">
-                  <span :class="{ lit: advancing(bracket.west.final) }" />
-                  <span :class="{ lit: advancing(bracket.east.final) }" />
+                  <span
+                    class="feed-stem"
+                    :class="{
+                      lit: advancing(bracket.west.final, bracket.east.final),
+                    }"
+                  />
+                  <span
+                    class="feed-arm feed-arm-west"
+                    :class="{ lit: advancing(bracket.west.final) }"
+                  />
+                  <span
+                    class="feed-arm feed-arm-east"
+                    :class="{ lit: advancing(bracket.east.final) }"
+                  />
                 </div>
               </div>
               <div class="cf-row wide-only">
                 <PlayoffsTieCard
                   :tie="bracket.west.final"
+                  heading="West Conf. Final"
                   :favorite="favorite"
                   @open-game-detail="open"
                 />
                 <PlayoffsTieCard
                   :tie="bracket.east.final"
+                  heading="East Conf. Final"
                   :favorite="favorite"
                   @open-game-detail="open"
                 />
+              </div>
+              <div class="cf-foot wide-only">
                 <p
                   class="cf-caption"
                   :class="{ 'cf-caption-now': currentRound === 'final' }"
@@ -343,15 +387,20 @@
                   <span class="col-title">Conf. Finals</span>
                   <span class="col-dates">{{ PLAYOFF_ROUND_DATES.final }}</span>
                 </p>
+                <PlayoffsFormatGuide :current="currentRound" />
               </div>
             </div>
           </section>
         </div>
       </div>
 
+      <div class="guide-below">
+        <PlayoffsFormatGuide :current="currentRound" />
+      </div>
+
       <p class="bracket-note">
-        Round One is a best-of-3 series. Every other round is a single match
-        hosted by the higher seed. Select a match for details.
+        The higher seed hosts every game except Game 2 of Round One. Select a
+        match for details.
       </p>
     </template>
   </div>
@@ -539,11 +588,13 @@
   }
 
   /* Plain `1fr` keeps each conference at least as wide as its own columns,
-     so it can never slide underneath the MLS Cup card. */
+     so it can never slide underneath the MLS Cup card. The middle column
+     takes spare width first (up to 20rem), so the two conference finals side
+     by side stay at least as wide as a semifinal. */
   .bracket {
     --cf-gap: 0.6rem;
     display: grid;
-    grid-template-columns: 1fr minmax(14rem, 16rem) 1fr;
+    grid-template-columns: 1fr minmax(14rem, 20rem) 1fr;
   }
 
   .half {
@@ -557,10 +608,20 @@
     grid-template-rows: auto repeat(4, 1fr);
   }
 
-  /* Specific enough to beat `.col-head`, which sets its own display. */
+  /* Specific enough to beat `.col-head` and `.cup`, which set their own display. */
   @media (min-width: 1024px) {
-    .half > .narrow-only {
+    .half > .narrow-only,
+    .cup-card > .narrow-only {
       display: none;
+    }
+
+    /* The gold MLS Cup card rises into the heading row and stands in for
+       the column heading. */
+    .cup-col > .col-head {
+      visibility: hidden;
+    }
+    .cup-card {
+      margin-top: calc(-1 * (2.6rem + 0.25rem));
     }
   }
 
@@ -638,53 +699,121 @@
 
   .cup-top {
     grid-row: 1;
-    align-self: end;
     display: flex;
     flex-direction: column;
-    align-items: center;
   }
 
   .cup-card {
     display: flex;
-    width: min(100%, 12rem);
   }
 
-  /* Each final's line rises from the centre of its card into MLS Cup. */
+  /* A stem drops from MLS Cup to a crossbar, whose arms drop into the
+     centre of each conference final. */
   .cup-feed {
     position: relative;
-    align-self: stretch;
-    height: 1.4rem;
+    flex: 1;
+    min-height: 2rem;
   }
-  .cup-feed > span {
+  .feed-stem,
+  .feed-arm {
     position: absolute;
-    inset-block: 0;
-    border-inline-start: 1px solid oklab(100% 0 0 / 0.16);
+    border: 0 solid oklab(100% 0 0 / 0.16);
   }
-  .cup-feed > span:first-child {
-    inset-inline-start: calc((100% - var(--cf-gap)) / 4);
+  .feed-stem {
+    inset-block: 0 50%;
+    inset-inline-start: 50%;
+    border-inline-start-width: 1px;
   }
-  .cup-feed > span:last-child {
-    inset-inline-end: calc((100% - var(--cf-gap)) / 4);
+  .feed-arm {
+    inset-block: 50% 0;
+    border-block-start-width: 1px;
   }
-  .cup-feed > span.lit {
+  .feed-arm-west {
+    inset-inline: calc((100% - var(--cf-gap)) / 4) 50%;
+    border-inline-start-width: 1px;
+  }
+  .feed-arm-east {
+    inset-inline: 50% calc((100% - var(--cf-gap)) / 4);
+    border-inline-end-width: 1px;
+  }
+  .cup-feed > .lit {
     z-index: 1;
-    border-inline-start-width: 2px;
     border-color: var(--color-theme-400);
+  }
+  .feed-stem.lit {
+    border-inline-start-width: 2px;
+  }
+  .feed-arm.lit {
+    border-block-start-width: 2px;
+  }
+  .feed-arm-west.lit {
+    border-inline-start-width: 2px;
+  }
+  .feed-arm-east.lit {
+    border-inline-end-width: 2px;
+  }
+
+  /* ── Semifinal slots and their elbows into the conference finals ────── */
+  .sf-slot {
+    --elbow-k: 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sf-gap {
+    position: relative;
+    flex: 1;
+  }
+
+  /* Out of the card at its centre, then across into the final's outer edge,
+     stopping short of the midline so the two semis enter at different heights. */
+  .elbow {
+    position: absolute;
+    inset-inline: 50% calc(-1 * var(--link-w));
+    border: 0 solid oklab(100% 0 0 / 0.16);
+    border-inline-start-width: 1px;
+  }
+  .elbow-down {
+    inset-block: 0 var(--elbow-k);
+    border-block-end-width: 1px;
+  }
+  .elbow-up {
+    inset-block: var(--elbow-k) 0;
+    border-block-start-width: 1px;
+  }
+  .elbow.lit {
+    z-index: 1;
+    border-color: var(--color-theme-400);
+    border-inline-start-width: 2px;
+  }
+  .elbow-down.lit {
+    border-block-end-width: 2px;
+  }
+  .elbow-up.lit {
+    border-block-start-width: 2px;
   }
 
   .cf-row {
     grid-row: 2;
-    position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--cf-gap);
     align-items: center;
   }
 
+  /* Row 3 mirrors row 1, so a taller guide grows the bracket evenly and
+     the finals stay on the midline. */
+  .cf-foot {
+    grid-row: 3;
+    padding-top: 0.5rem;
+  }
+
+  .cf-foot .format {
+    margin-top: 0.75rem;
+    padding-inline: 0.25rem;
+  }
+
   .cf-caption {
-    position: absolute;
-    inset-inline: 0;
-    top: calc(100% + 0.5rem);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -753,6 +882,10 @@
     border-block-end-width: 2px;
   }
 
+  .guide-below {
+    display: none;
+  }
+
   .bracket-note {
     margin-top: 1rem;
     font-size: 0.8125rem;
@@ -783,6 +916,9 @@
     }
     .cup-card {
       width: 100%;
+    }
+    .cup-card > .wide-only {
+      display: none;
     }
 
     .playoffs {
@@ -821,6 +957,11 @@
        sits on its left, and the scroller starts at the right edge. */
     .bracket-scroll.conf-east {
       direction: rtl;
+    }
+
+    .guide-below {
+      display: block;
+      margin-top: 1.25rem;
     }
 
     .bracket-note {
