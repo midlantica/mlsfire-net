@@ -54,6 +54,7 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 - `LeadersTab.vue` — player leaders
 - `LineupsTab.vue` — lineups/rosters
 - `H2hTab.vue` — head-to-head history
+- MLS Cup Final (`seasonSlug` `mls-cup`) gets the gold variant of `Modal.vue` (`.modal-cup`): Team [crest] score [trophy, status plaque on its base] score [crest] Team. Clicking the trophy opens `TrophyModal.vue` — trophy history plus every final from `app/constants/mlsCupHistory.ts` (the live final is added until the list has it).
 
 ### TeamDetail/ folder (`app/components/TeamDetail/`)
 
@@ -84,6 +85,7 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 ### Season changeover checklist
 
 - **After Decision Day:** `pnpm archive:standings <year>`, `pnpm archive:week <monday>` for the last two weeks, update `FINAL_WEEKS`.
+- **After MLS Cup:** add the final to `MLS_CUP_FINALS` (`app/constants/mlsCupHistory.ts`).
 - **Through the off-season** (until `NEXT_SEASON_FIRST_WEEK`) the Final Stretch / Decision Day / Playoffs tabs stay up; the bracket shows a champion banner once MLS Cup is final. The bracket reads `PLAYOFFS_SEASON` (from `PLAYOFFS_START`), not `SEASON_YEAR`.
 - **When MLS publishes the new schedule:** set `NEXT_SEASON_START`, `NEXT_SEASON_FIRST_WEEK`, `NEXT_SEASON_CONFIRMED = true`.
 - **Opening week:** bump `SEASON_YEAR` (standings, stats, leaders, team fixtures follow it), then set the new season's playoff dates and `OFFSEASON_START` / `LAST_GAME_WEEK`. `pnpm check:data` flags when ESPN has moved on.

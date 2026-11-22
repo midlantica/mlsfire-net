@@ -10,8 +10,11 @@
     close: []
   }>()
 
+  // Closes only this popup, not the game popup underneath it.
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') emit('close')
+    if (!(e.key === 'Escape' && props.open)) return
+    e.stopImmediatePropagation()
+    emit('close')
   }
 
   onMounted(() => window.addEventListener('keydown', onKeydown))

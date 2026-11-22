@@ -15,6 +15,7 @@
     generateAllStarPreview,
   } from '~/composables/useMatchPreview'
   import { getStadiumInfo } from '~/constants/venues'
+  import type { CupFinal } from '~/constants/mlsCupHistory'
   import {
     getPlayoffRound,
     getRoundInfo,
@@ -85,8 +86,10 @@
   })
 
   // ── Keyboard close ────────────────────────────────────────────────────────────
+  // A popup opened on top of this one (stadium, trophy) takes Escape first.
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') emit('close')
+    if (e.key !== 'Escape' || showStadiumModal.value || showTrophy.value) return
+    emit('close')
   }
 
   onMounted(() => window.addEventListener('keydown', onKeydown))
@@ -259,6 +262,47 @@
 
   const homeLost = computed(() => lostBy('home'))
   const awayLost = computed(() => lostBy('away'))
+
+  // The MLS Cup Final gets the gold treatment, matching the bracket's card.
+  const isCupFinal = computed(
+    () => getPlayoffRound(props.match?.seasonSlug)?.round === 'mls-cup'
+  )
+  const champion = computed<'home' | 'away' | null>(() => {
+    if (!isCupFinal.value) return null
+    return awayLost.value ? 'home' : homeLost.value ? 'away' : null
+  })
+
+  const showTrophy = ref(false)
+  watch(
+    () => props.open,
+    (open) => {
+      if (!open) showTrophy.value = false
+    }
+  )
+
+  /** This final's result, for the trophy popup's champions list. */
+  const latestFinal = computed<CupFinal | null>(() => {
+    const m = props.match
+    if (!m || !champion.value) return null
+    const won = champion.value
+    const lost = won === 'home' ? 'away' : 'home'
+    const goals = (side: 'home' | 'away') =>
+      (side === 'home' ? m.homeScore : m.awayScore) ?? '0'
+    const pens = (side: 'home' | 'away') =>
+      side === 'home' ? m.homeShootout : m.awayShootout
+    const winner = won === 'home' ? m.home : m.away
+    return {
+      year: new Date(m.date).getUTCFullYear(),
+      champion: winner,
+      club: winner,
+      runnerUp: lost === 'home' ? m.home : m.away,
+      score: `${goals(won)}–${goals(lost)}`,
+      note:
+        pens(won) != null && pens(lost) != null
+          ? `${pens(won)}–${pens(lost)} pens`
+          : undefined,
+    }
+  })
 
   // Cup ties against non-MLS clubs carry no league record, so the feed hands
   // back the "–" placeholder — nothing worth giving a line to. Leagues Cup
@@ -623,11 +667,12 @@
       <div
         v-if="open && match"
         class="modal-backdrop"
+        :class="{ 'modal-backdrop-cup': isCupFinal }"
         role="dialog"
         aria-modal="true"
         @mousedown.self="emit('close')"
       >
-        <div class="modal-shell">
+        <div class="modal-shell" :class="{ 'modal-cup': isCupFinal }">
           <div class="modal-panel">
             <!-- ── Header ──────────────────────────────────────────────────────── -->
             <div class="modal-header">
@@ -637,7 +682,11 @@
                 class="header-stage"
                 :class="{ 'header-stage-lc': isLeaguesCup }"
               >
+                <p v-if="isCupFinal" class="header-cup-title">
+                  <span>MLS Cup Final</span>
+                </p>
                 <span
+                  v-else
                   class="header-stage-label"
                   :class="{ 'header-stage-label-lc': isLeaguesCup }"
                 >
@@ -658,6 +707,19 @@
 
               <!-- Mobile game-card header (hidden on desktop) -->
               <div class="header-mobile">
+                <img
+                  v-if="isCupFinal"
+                  class="header-mobile-trophy"
+                  src="/mls-cup-trophy.webp"
+                  alt="The MLS Cup trophy — history and past champions"
+                  role="button"
+                  tabindex="0"
+                  @click.stop="showTrophy = true"
+                  @keydown.enter.space.prevent="showTrophy = true"
+                  width="183"
+                  height="260"
+                  decoding="async"
+                />
                 <!-- Venue info — above the scores -->
                 <div v-if="matchVenue" class="header-mobile-venue-row">
                   <button
@@ -804,6 +866,9 @@
                     }}</span>
                   </div>
                 </div>
+                <p v-if="champion" class="header-champ header-champ-line">
+                  {{ champion === 'home' ? homeTeam : awayTeam }} · Champions
+                </p>
                 <!-- Meta info: date/time line -->
                 <div class="header-mobile-meta">
                   <span class="header-meta-line">{{ matchMeta }}</span>
@@ -831,6 +896,9 @@
                     <span v-if="homeRecord" class="header-team-rec">{{
                       homeRecord
                     }}</span>
+                    <span v-if="champion === 'home'" class="header-champ"
+                      >Champions</span
+                    >
                   </div>
 
                   <component
@@ -855,6 +923,19 @@
 
                 <!-- Center: score + meta -->
                 <div class="header-score-block">
+                  <img
+                    v-if="isCupFinal"
+                    class="header-trophy"
+                    src="/mls-cup-trophy.webp"
+                    alt="The MLS Cup trophy — history and past champions"
+                    role="button"
+                    tabindex="0"
+                    @click.stop="showTrophy = true"
+                    @keydown.enter.space.prevent="showTrophy = true"
+                    width="183"
+                    height="260"
+                    decoding="async"
+                  />
                   <div class="header-score-row">
                     <span
                       v-if="match.status.code !== 'ns'"
@@ -875,7 +956,7 @@
                       <span
                         v-else-if="match.status.code === 'live'"
                         class="badge badge-live"
-                        >{{ match.status.clock || 'LIVE' }}</span
+                        >{{ displayClock }}</span
                       >
                       <span
                         v-else-if="match.status.code === 'ht'"
@@ -938,6 +1019,9 @@
                     <span v-if="awayRecord" class="header-team-rec">{{
                       awayRecord
                     }}</span>
+                    <span v-if="champion === 'away'" class="header-champ"
+                      >Champions</span
+                    >
                   </div>
                 </div>
               </div>
@@ -1238,6 +1322,11 @@
     :open="showStadiumModal"
     :stadium="stadiumInfo"
     @close="showStadiumModal = false"
+  />
+  <GameDetailTrophyModal
+    :open="showTrophy"
+    :latest="latestFinal"
+    @close="showTrophy = false"
   />
 </template>
 
@@ -2118,8 +2207,8 @@
   /* Close button — plain X in top-right corner, no circle */
   .modal-close {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
+    top: 0.85rem;
+    right: 0.85rem;
 
     background: transparent;
     border: none;
@@ -2130,6 +2219,11 @@
     cursor: pointer;
     transition: color 0.15s;
     z-index: 9100;
+  }
+
+  .modal-close :deep(svg) {
+    width: 1.1rem;
+    height: 1.1rem;
   }
 
   .modal-close:hover {
@@ -2369,5 +2463,323 @@
     text-align: center;
     padding: 1.25rem 0;
     letter-spacing: 0.06em;
+  }
+
+  /* ── MLS Cup Final: the gold popup, matching the bracket's gold card ───── */
+  .modal-backdrop-cup {
+    background:
+      radial-gradient(
+        70% 55% at 50% 32%,
+        oklch(34% 0.06 82 / 0.5),
+        transparent 75%
+      ),
+      oklab(0% 0 0 / 0.82);
+  }
+
+  /* About three-quarters of the screen: never narrower than a regular
+     popup, never wider than 60rem. */
+  .modal-cup {
+    max-width: clamp(44rem, 75vw, 60rem);
+  }
+
+  /* Metallic gradient border painted under a padding-box fill, as on the card. */
+  .modal-cup .modal-panel {
+    border: 2px solid transparent;
+    border-radius: 1rem;
+    max-height: 90dvh;
+    background:
+      linear-gradient(180deg, oklch(17% 0.02 76), oklch(14% 0.014 70))
+        padding-box,
+      linear-gradient(
+          140deg,
+          oklch(94% 0.09 95),
+          oklch(70% 0.12 78) 35%,
+          oklch(90% 0.1 92) 62%,
+          oklch(62% 0.11 72)
+        )
+        border-box;
+    box-shadow:
+      0 28px 80px -20px oklch(78% 0.12 85 / 0.45),
+      0 8px 24px oklab(0% 0 0 / 0.8);
+  }
+
+  .modal-cup .modal-header {
+    padding: 1.1rem 1rem 0.5rem;
+    background:
+      radial-gradient(
+        50% 70% at 50% 48%,
+        oklch(84% 0.11 88 / 0.2),
+        transparent 72%
+      ),
+      linear-gradient(180deg, oklch(29% 0.05 82), oklch(18% 0.035 74));
+    border-bottom-color: oklch(82% 0.1 86 / 0.25);
+    box-shadow: inset 0 1px 0 oklch(96% 0.05 95 / 0.2);
+  }
+
+  .header-cup-title {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    width: min(100%, 36rem);
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+
+  .header-cup-title span {
+    margin-inline-end: -0.24em;
+    white-space: nowrap;
+    background: linear-gradient(180deg, oklch(96% 0.07 95), oklch(78% 0.13 82));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .header-cup-title::before,
+  .header-cup-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, oklch(82% 0.11 86 / 0.7));
+  }
+
+  .header-cup-title::after {
+    background: linear-gradient(90deg, oklch(82% 0.11 86 / 0.7), transparent);
+  }
+
+  /* Same "Team [crest] … [crest] Team" row as other games, scaled up. */
+  .modal-cup .header-row {
+    gap: 1.25rem;
+    padding: 0 0.75rem;
+  }
+
+  .modal-cup .header-team-name {
+    font-size: 1.375rem;
+    font-weight: 500;
+  }
+
+  .modal-cup .header-logo {
+    width: 4.5rem;
+    height: 4.5rem;
+    filter: drop-shadow(0 6px 12px oklch(0% 0 0 / 0.45));
+  }
+
+  .modal-cup .header-team-rec {
+    color: oklch(88% 0.05 88 / 0.65);
+  }
+
+  /* Hangs below the record without adding height, so the winner's crest
+     and name stay level with the other side's. */
+  .modal-cup .header-team-info {
+    position: relative;
+  }
+
+  .header-team-info .header-champ {
+    position: absolute;
+    top: 100%;
+    margin-top: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .header-team-info-home .header-champ {
+    right: 0;
+  }
+
+  .header-team-info-away .header-champ {
+    left: 0;
+  }
+
+  /* One band: Team [crest] 2 [trophy, clock on its base] 1 [crest] Team,
+     with the date and venue straight underneath. The score block's parts
+     join the row's grid so the scores and clock can sit level with the
+     crests while the trophy rises above them. */
+  .modal-cup .header-row {
+    grid-template-rows: auto auto auto;
+    row-gap: 0;
+  }
+
+  .modal-cup .header-score-block {
+    display: contents;
+  }
+
+  .modal-cup .header-team-home {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .modal-cup .header-team-away {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  /* Tucks up over the foot of the "MLS Cup Final" title, and down behind
+     the clock so it stands on the trophy's base. */
+  .header-trophy {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    align-self: end;
+    position: relative;
+    z-index: 1;
+    width: auto;
+    height: 8.1rem;
+    margin-top: -0.85rem;
+    margin-bottom: -3.55rem;
+    filter: drop-shadow(0 8px 14px oklch(0% 0 0 / 0.5));
+    cursor: zoom-in;
+    transition: filter 0.2s;
+  }
+
+  .header-trophy:hover,
+  .header-trophy:focus-visible {
+    filter: drop-shadow(0 8px 14px oklch(0% 0 0 / 0.5))
+      drop-shadow(0 0 12px oklch(86% 0.12 88 / 0.55));
+    outline: none;
+  }
+
+  .modal-cup .header-score-row {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* As wide as the trophy, so the scores flank it rather than sit under it. */
+  .modal-cup .header-sep {
+    min-width: 6.5rem;
+  }
+
+  /* Solid nameplate on the trophy's base — a see-through badge loses its
+     text against the silver. */
+  .modal-cup .header-sep .badge,
+  .modal-cup .header-vs {
+    background: linear-gradient(
+      180deg,
+      oklch(36% 0.06 82),
+      oklch(25% 0.045 76)
+    );
+    border: 1px solid oklch(84% 0.11 88 / 0.6);
+    box-shadow: 0 3px 8px oklch(0% 0 0 / 0.45);
+    color: oklch(96% 0.04 95);
+  }
+
+  .modal-cup .header-vs {
+    padding: 0.1rem 0.55rem;
+    border-radius: 0.2rem;
+    font-size: 1.125rem;
+  }
+
+  .modal-cup .header-meta {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  /* Score → date → venue steps down in size rather than dropping straight
+     to small print. */
+  .modal-cup .header-row .header-meta-line {
+    font-size: 1.05rem;
+  }
+
+  .modal-cup .header-venue-line-top {
+    font-size: 0.95rem;
+  }
+
+  .modal-cup .header-score {
+    font-size: 3rem;
+    color: oklch(97% 0.03 95);
+  }
+
+  .modal-cup .header-score.score-loser {
+    color: oklch(80% 0.04 85 / 0.65);
+  }
+
+  .modal-cup .header-vs {
+    font-size: 1.5rem;
+    color: oklch(92% 0.08 90);
+  }
+
+  .modal-cup .badge {
+    background: oklch(85% 0.1 85 / 0.18);
+    color: oklch(95% 0.04 95);
+  }
+
+  /* The phone badge forces its slate fill with !important. */
+  .modal-cup .header-mobile-badge {
+    background: oklch(85% 0.1 85 / 0.18) !important;
+    color: oklch(95% 0.04 95) !important;
+  }
+
+  .modal-cup .header-meta-line {
+    color: oklch(93% 0.05 90 / 0.9);
+  }
+
+  .modal-cup .header-venue-line-top,
+  .modal-cup .header-mobile-venue-row {
+    color: oklch(86% 0.05 88 / 0.7);
+  }
+
+  .header-champ {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: oklch(88% 0.12 88);
+  }
+
+  .modal-cup .modal-close {
+    color: oklch(88% 0.08 88 / 0.5);
+  }
+
+  .modal-cup .modal-close:hover {
+    color: oklch(96% 0.05 95);
+  }
+
+  .modal-cup .modal-tabs {
+    background: linear-gradient(
+      180deg,
+      oklch(13% 0.02 76 / 0.9),
+      oklch(13% 0.02 76 / 0)
+    );
+    border-bottom-color: oklch(82% 0.1 86 / 0.18);
+  }
+
+  .modal-cup .modal-tab {
+    color: oklch(90% 0.04 88 / 0.6);
+  }
+
+  .modal-cup .modal-tab:hover:not(.active) {
+    color: oklch(92% 0.05 90 / 0.85);
+  }
+
+  .modal-cup .modal-tab.active {
+    color: oklch(95% 0.07 92);
+    border-bottom-color: oklch(84% 0.12 88);
+  }
+
+  .header-mobile-trophy {
+    display: block;
+    cursor: zoom-in;
+    width: auto;
+    height: 5.5rem;
+    margin: 0.4rem auto 0.25rem;
+    filter: drop-shadow(0 6px 10px oklch(0% 0 0 / 0.5));
+  }
+
+  @media (max-width: 599px) {
+    .modal-cup .modal-header {
+      padding: 0.8rem 0.875rem 0.5rem;
+    }
+    .header-cup-title {
+      font-size: 1rem;
+      gap: 0.6rem;
+    }
+    .header-champ-line {
+      margin-top: 0.45rem;
+      font-size: 0.75rem;
+      text-align: center;
+    }
   }
 </style>
