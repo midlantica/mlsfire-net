@@ -1863,6 +1863,21 @@
     min-width: 2.5rem;
   }
 
+  /* The ticking clock holds the width of the widest time it can show (extra
+     time runs past 100:00), so the scores either side never shift. */
+  .header-sep .badge-live {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .header-sep .badge-live::after {
+    content: '000:00';
+    display: block;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+
   .header-vs {
     font-size: 1.125rem;
     font-weight: 600;

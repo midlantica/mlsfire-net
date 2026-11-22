@@ -325,6 +325,8 @@ export function bracketTies(bracket: PlayoffBracket): BracketTie[] {
   ]
 }
 
+let inFlight: Promise<void> | null = null
+
 export function usePlayoffs() {
   const bracket = useState<PlayoffBracket | null>(
     'playoffs-bracket',
@@ -334,8 +336,18 @@ export function usePlayoffs() {
   const loaded = useState<boolean>('playoffs-loaded', () => false)
   const error = useState<boolean>('playoffs-error', () => false)
 
-  async function fetchBracket(force = false) {
-    if (loading.value || (loaded.value && !force)) return
+  // A caller that arrives mid-fetch (a /game?id= refresh while the bracket
+  // tab is mounting) waits on the same request instead of returning early.
+  function fetchBracket(force = false): Promise<void> {
+    if (loading.value && inFlight) return inFlight
+    if (loaded.value && !force) return Promise.resolve()
+    inFlight = loadBracket(force).finally(() => {
+      inFlight = null
+    })
+    return inFlight
+  }
+
+  async function loadBracket(force: boolean) {
     loading.value = true
     try {
       const url = force ? `/api/playoffs?_t=${Date.now()}` : '/api/playoffs'

@@ -57,14 +57,14 @@
   <div v-if="detail.teamStats.length >= 2" class="stats-table">
     <div class="stats-head">
       <div class="stats-th stats-th-home">
+        <span class="name-short">{{ homeAbbr }}</span>
+        <span class="name-abbrev">{{ homeTeamAbbrev }}</span>
         <img
           v-if="homeLogo"
           :src="homeLogo"
           :alt="homeTeam"
           class="head-logo"
         />
-        <span class="name-short">{{ homeAbbr }}</span>
-        <span class="name-abbrev">{{ homeTeamAbbrev }}</span>
       </div>
       <div class="stats-th-center"></div>
       <div class="stats-th stats-th-away">
@@ -170,6 +170,12 @@
 
   .stats-th-home {
     justify-content: flex-end;
+  }
+
+  /* Cancels the trailing letter-spacing so the name sits as close to its
+     crest as the away name does. */
+  .stats-th-home span {
+    margin-right: -0.13em;
   }
 
   .stats-th-away {

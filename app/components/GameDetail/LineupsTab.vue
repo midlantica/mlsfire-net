@@ -52,16 +52,16 @@
   <div class="squads-table">
     <div class="squads-head">
       <div class="squads-th squads-th-home">
+        <span>
+          <span class="name-short">{{ homeAbbr }}</span>
+          <span class="name-abbrev">{{ homeTeamAbbrev }}</span>
+        </span>
         <img
           v-if="homeLogo"
           :src="homeLogo"
           :alt="homeTeam"
           class="squads-th-logo"
         />
-        <span>
-          <span class="name-short">{{ homeAbbr }}</span>
-          <span class="name-abbrev">{{ homeTeamAbbrev }}</span>
-        </span>
       </div>
       <div class="squads-th-center"></div>
       <div class="squads-th squads-th-away">
@@ -202,6 +202,12 @@
 
   .squads-th-home {
     justify-content: flex-end;
+  }
+
+  /* Cancels the trailing letter-spacing so the name sits as close to its
+     crest as the away name does. */
+  .squads-th-home > span {
+    margin-right: -0.13em;
   }
 
   .squads-th-away {
