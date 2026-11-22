@@ -8,13 +8,14 @@
     ALL_STAR_TEAMS,
   } from '~/composables/useTeamTheme'
   import { useTimezone } from '~/composables/useTimezone'
-  import { useConferenceBadges } from '~/composables/useStandings'
+  import { useConferenceBadges, useStandings } from '~/composables/useStandings'
   import {
     generateMatchPreview,
     generateAllStarPreview,
   } from '~/composables/useMatchPreview'
   import { getStadiumInfo } from '~/constants/venues'
   import {
+    getPlayoffRound,
     getRoundInfo,
     isSeriesDecided,
     getCompetition,
@@ -624,16 +625,20 @@
       ''
   )
 
-  const homePoints = computed(
-    () =>
-      detail.value?.teams.find((t) => t.homeAway === 'home')?.points ??
-      undefined
-  )
-  const awayPoints = computed(
-    () =>
-      detail.value?.teams.find((t) => t.homeAway === 'away')?.points ??
-      undefined
-  )
+  // ESPN leaves team records off postseason fixtures (and sends '–' then),
+  // so fall back to the conference table.
+  const { conferences } = useStandings()
+  function seasonPoints(side: 'home' | 'away', team: string) {
+    const espn = detail.value?.teams.find((t) => t.homeAway === side)?.points
+    if (espn && espn !== '–') return espn
+    for (const conf of conferences.value) {
+      const entry = conf.entries.find((e) => e.team === team)
+      if (entry) return String(entry.pts)
+    }
+    return undefined
+  }
+  const homePoints = computed(() => seasonPoints('home', homeTeam.value))
+  const awayPoints = computed(() => seasonPoints('away', awayTeam.value))
 
   const homeForm = computed(
     () =>
@@ -655,6 +660,24 @@
     )
   )
 
+  const playoffPreviewInput = computed(() => {
+    const stage = getPlayoffRound(props.match?.seasonSlug)
+    if (!stage) return undefined
+    const next = props.match?.series?.next
+    return {
+      ...stage,
+      series: props.match?.series,
+      nextDate: next
+        ? new Date(next.date).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            timeZone: iana.value,
+          })
+        : undefined,
+    }
+  })
+
   const matchPreview = computed(() => {
     if (!props.match) return null
     if (isAllStarGame.value) return generateAllStarPreview(props.match.id)
@@ -674,6 +697,7 @@
       homeLeader: homeSeasonLeader.value,
       awayLeader: awaySeasonLeader.value,
       previewOdds: detail.value?.previewOdds,
+      playoff: playoffPreviewInput.value,
     })
   })
 </script>
@@ -1888,6 +1912,11 @@
     margin-bottom: 0.5rem;
   }
 
+  .header-stage:has(.header-series-note) {
+    gap: 0.55rem;
+    margin-bottom: 1rem;
+  }
+
   /* Leagues Cup only: sits closer to the top of the modal, with more room
      below it before the team/score row. */
   .header-stage-lc {
@@ -1934,7 +1963,8 @@
     color: oklab(100% 0 0 / 0.75);
     background: oklab(100% 0 0 / 0.1);
     border-radius: 0.2rem;
-    padding: 0.1rem 0.4rem;
+    /* The condensed face sits low in its line box — lift it to look centred. */
+    padding: 0.04rem 0.45rem 0.17rem;
     text-align: center;
   }
 

@@ -1,4 +1,7 @@
+import type { Conference, PlayoffRound } from '~/constants/rounds'
 import type { H2HGame, PreviewOdds, SeasonLeader } from './useMatchDetail'
+import { gameWinner } from './usePlayoffs'
+import type { Match, SeriesContext } from './useScores'
 import type { ConferenceBadge } from './useStandings'
 
 export interface MatchPreviewInput {
@@ -17,6 +20,13 @@ export interface MatchPreviewInput {
   homeLeader?: SeasonLeader
   awayLeader?: SeasonLeader
   previewOdds?: PreviewOdds
+  playoff?: {
+    round: PlayoffRound
+    conference: Conference | null
+    series?: SeriesContext
+    /** The series' next game, e.g. "Wed, Dec 2", in the viewer's timezone. */
+    nextDate?: string
+  }
 }
 
 export interface PreviewLink {
@@ -73,9 +83,120 @@ function pickVariant(seed: string, count: number): number {
   return hashCode(seed) % count
 }
 
+// ── Playoffs: the stakes beat any regular-season template ────────────────────
+const CONFERENCE_NAME: Record<Conference, string> = {
+  East: 'Eastern Conference',
+  West: 'Western Conference',
+}
+
+function withSeed(team: string, badge?: ConferenceBadge): string {
+  return badge && badge.league !== 'ligamx'
+    ? `${team} (No. ${badge.rank} seed)`
+    : team
+}
+
+function sideGoals(m: Match, team: string) {
+  const home = m.home === team
+  return {
+    goals: (home ? m.homeScore : m.awayScore) ?? '0',
+    pens: home ? m.homeShootout : m.awayShootout,
+  }
+}
+
+/** "a 3–0 win away at Inter Miami CF", from the winner's side. */
+function resultText(m: Match, winner: string): string {
+  const loser = m.home === winner ? m.away : m.home
+  const w = sideGoals(m, winner)
+  const l = sideGoals(m, loser)
+  const where = m.home === winner ? 'at home' : `away at ${m.home}`
+  return w.pens != null && l.pens != null
+    ? `a ${w.pens}–${l.pens} shootout win after a ${w.goals}–${l.goals} draw ${where}`
+    : `a ${w.goals}–${l.goals} win ${where}`
+}
+
+/** "3–0" or "on penalties", from the winner's side. */
+function shortResult(m: Match, winner: string): string {
+  const loser = m.home === winner ? m.away : m.home
+  const w = sideGoals(m, winner)
+  const l = sideGoals(m, loser)
+  return w.pens != null && l.pens != null
+    ? `on penalties (${w.goals}–${l.goals}, ${w.pens}–${l.pens})`
+    : `${w.goals}–${l.goals}`
+}
+
+function seriesPreview(
+  input: MatchPreviewInput,
+  series: SeriesContext,
+  nextDate: string | undefined,
+  form: string
+): string | null {
+  const home = input.homeTeam
+  const away = input.awayTeam
+  const results = series.earlier.flatMap((m) => {
+    const winner = gameWinner(m)
+    return winner === home || winner === away ? [{ m, winner }] : []
+  })
+  const homeWins = results.filter((r) => r.winner === home).length
+  const awayWins = results.length - homeWins
+
+  if (series.game === 1)
+    return `${withSeed(home, input.homeBadge)} and ${withSeed(away, input.awayBadge)} open their best-of-three Round One series here. Two wins takes it, and there are no draws: a game level after 90 minutes goes straight to penalties. The winner moves on to the Conference Semifinals.${form}`
+
+  if (series.game === 2 && results.length === 1) {
+    const [first] = results
+    const leader = first!.winner
+    const trailer = leader === home ? away : home
+    return `${leader} lead the series 1–0 after ${resultText(first!.m, leader)} in Game 1. Win again and they're through to the Conference Semifinals; ${trailer} need a win to force a deciding Game 3${nextDate ? ` on ${nextDate}` : ''}. Level after 90 minutes goes straight to penalties.`
+  }
+
+  if (series.game === 3 && homeWins === 1 && awayWins === 1) {
+    const [g1, g2] = results
+    return `All square at 1–1, so this is the decider: ${g1!.winner} took Game 1 ${shortResult(g1!.m, g1!.winner)}, and ${g2!.winner} answered in Game 2 ${shortResult(g2!.m, g2!.winner)}. The winner goes through to the Conference Semifinals, and if it's level after 90 minutes, it goes straight to penalties.`
+  }
+
+  return null
+}
+
+function playoffPreview(input: MatchPreviewInput): MatchPreview | null {
+  const p = input.playoff
+  if (!p) return null
+  const home = withSeed(input.homeTeam, input.homeBadge)
+  const away = withSeed(input.awayTeam, input.awayBadge)
+  const conf = p.conference ? CONFERENCE_NAME[p.conference] : 'conference'
+  const form =
+    input.homeForm && input.awayForm
+      ? ` ${input.homeTeam} come in on a ${formatForm(input.homeForm)} run over their last five, ${input.awayTeam} on ${formatForm(input.awayForm)}.`
+      : ''
+
+  let text: string | null = null
+  switch (p.round) {
+    case 'wild-card':
+      text = `One game, no extra time: ${home} host ${away} in the ${conf} Wild Card, and if it's level after 90 minutes it goes straight to penalties. The winner takes on the conference's top seed in Round One.${form}`
+      break
+    case 'round-one':
+      text = p.series
+        ? seriesPreview(input, p.series, p.nextDate, form)
+        : `${home} and ${away} meet in a best-of-three Round One series. Two wins takes it, and a game level after 90 minutes goes straight to penalties.${form}`
+      break
+    case 'semifinals':
+      text = `Win or go home: ${home} host ${away} in the ${conf} Semifinals, with a place in the ${conf} Final on the line. If it's level after 90 minutes, 30 minutes of extra time follow, then penalties.${form}`
+      break
+    case 'final':
+      text = `The ${conf} Final: ${home} host ${away}, and the winner goes to MLS Cup. If it's level after 90 minutes, extra time and then penalties decide it.${form}`
+      break
+    case 'mls-cup':
+      text = `MLS Cup: ${input.homeTeam} host ${input.awayTeam} for the title. One game, and if it's level after 90 minutes, extra time and then penalties decide it.${form}`
+      break
+  }
+  return text ? { template: 'playoff', text } : null
+}
+
 export function generateMatchPreview(
   input: MatchPreviewInput
 ): MatchPreview | null {
+  const playoff = playoffPreview(input)
+  if (playoff) return playoff
+
   const candidates: MatchPreview[] = []
 
   // ── Template 1: Form & Table Watch ──────────────────────────────────────

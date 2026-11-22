@@ -69,6 +69,8 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 - `FormatGuide.vue` — "How it works" explainer (round formats, tie-breaks), highlighting the current stage. From 1024px it sits under the conference finals in the MLS Cup column; narrower, below the bracket.
 - `CupCard.vue` `featured` — the gold "MLS Cup Final" card with the trophy (`public/mls-cup-trophy.webp`, cut out from MLS's render). From 1024px it replaces the plain card and rises into the heading row; narrower screens keep the plain card.
 - `TieCard.vue` `heading` — silver title ("West Conf. Final") for the wide bracket's conference finals, which the middle column (up to 20rem) keeps at least as large as a semifinal.
+- `TieCard.vue` status line and score rows describe one game — the live one, else the last played, else the next — and a click opens that same game, so card and modal scores always match. Date flush left; kickoff time / `FT` / `HT` / ticking clock (`useLiveClock`, shared with `GameBlock`) flush right. Best-of-3 cards add "CLB leads 1–0" after the date and tint each finished pill in its winner's color (`seriesColors()` in `usePlayoffs.ts`, which swaps a clashing lower seed to its secondary color or silver).
+- ESPN no longer sends Round One series notes, so `usePlayoffs` writes `Game N · CLB leads series 1–0` into each game's `seriesNote` (shown in the match modal header) unless ESPN supplies one.
 - `TieCard.vue` / `CupCard.vue` — one matchup each; clicking opens `GameDetailModal`. Before ESPN schedules a set pairing, the card opens a preview match (`matchup-<homeId>-<awayId>`, `windowLabel` instead of a kickoff) that `server/api/match-detail.ts` answers from `server/utils/matchupPreview.ts`.
 - Data: `server/api/playoffs.ts` → `server/utils/playoffBracket.ts` (pure; builds the bracket from ESPN standings seeds plus postseason scoreboard events) → `usePlayoffs()`.
 
@@ -98,4 +100,5 @@ Modal components live in subfolders; Nuxt auto-imports by path (e.g. `GameDetail
 pnpm dev        # dev server at localhost:3000
 pnpm build      # production build
 pnpm preview    # preview production build
+pnpm typecheck  # vue-tsc over app + server; keep it at zero errors
 ```

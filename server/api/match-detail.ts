@@ -279,22 +279,32 @@ export default defineEventHandler(async (event) => {
           isPenalty: typeSlug === 'penalty---scored',
         })
       } else if (typeSlug === 'own-goal') {
-        // Own goal — ESPN's teamId is the team whose player scored it (conceding team).
-        // The goal counts for the OTHER team (the benefiting team).
-        // Find the opponent's teamId from the competitors list.
-        const opponentId = competitors.find(
-          (c) => (c.team as Record<string, unknown>)?.id !== teamId
-        )
+        // An own goal counts for the side the scorer *doesn't* play for.
+        // ESPN's team on the event isn't a reliable guide (2026 feeds file it
+        // under the benefiting side), so go by the scorer's roster and only
+        // fall back to ESPN's team when the scorer isn't in either one.
+        const athleteId = String(ath?.id ?? '')
+        const scorerSide = athleteId
+          ? rostersRaw.find((r) =>
+              ((r.roster as Array<Record<string, unknown>>) ?? []).some(
+                (p) =>
+                  String((p.athlete as Record<string, unknown>)?.id) ===
+                  athleteId
+              )
+            )
+          : undefined
+        const scorerTeamId = (scorerSide?.team as Record<string, unknown>)
+          ?.id as string | undefined
+        const creditId = scorerTeamId
           ? ((
               competitors.find(
-                (c) => (c.team as Record<string, unknown>)?.id !== teamId
+                (c) => (c.team as Record<string, unknown>)?.id !== scorerTeamId
               )?.team as Record<string, unknown>
             )?.id as string | undefined)
-          : undefined
-        // Always push own-goal events even without a player name
-        if (opponentId) {
+          : teamId
+        if (creditId) {
           matchEvents.push({
-            teamId: opponentId,
+            teamId: creditId,
             type: 'goal',
             lastName: lastName || '',
             clock,

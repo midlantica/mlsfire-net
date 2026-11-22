@@ -1,3 +1,4 @@
+import { oklch, parse } from 'culori'
 import {
   NEXT_SEASON_FIRST_WEEK,
   OFFSEASON_START,
@@ -165,13 +166,62 @@ function previewMatch(
   }
 }
 
+export function gameWinner(m: Match): string | null {
+  if (m.status.code !== 'ft') return null
+  const diff =
+    Number(m.homeScore ?? 0) - Number(m.awayScore ?? 0) ||
+    Number(m.homeShootout ?? 0) - Number(m.awayShootout ?? 0)
+  return diff ? (diff > 0 ? m.home : m.away) : null
+}
+
+/**
+ * ESPN no longer tags Round One games with "CLB leads series 1-0", so the
+ * match modal's series note is rebuilt from the results: each game carries
+ * the series score after it (or, until it ends, going into it). Each game
+ * also carries its place in the series for the playoff preview.
+ */
+function withSeriesNotes(
+  games: Match[],
+  top: BracketTeam,
+  bottom: BracketTeam
+): Match[] {
+  const wins = new Map([
+    [top.name, 0],
+    [bottom.name, 0],
+  ])
+  return games.map((game, i) => {
+    const series = {
+      game: i + 1,
+      earlier: games.slice(0, i),
+      next: games[i + 1] ?? null,
+    }
+    const winner = gameWinner(game)
+    if (winner && wins.has(winner)) wins.set(winner, wins.get(winner)! + 1)
+    if (game.seriesNote) return { ...game, series }
+    const [t, b] = [wins.get(top.name)!, wins.get(bottom.name)!]
+    const lead = t > b ? top : bottom
+    const [hi, lo] = [Math.max(t, b), Math.min(t, b)]
+    const state =
+      t + b === 0
+        ? 'Best of 3'
+        : t === b
+          ? `Series tied ${t}–${b}`
+          : `${lead.abbr} ${hi === 2 ? 'win series' : 'leads series'} ${hi}–${lo}`
+    return { ...game, series, seriesNote: `Game ${i + 1} · ${state}` }
+  })
+}
+
 function toTie(raw: BracketTieRaw, gamesById: Map<string, Match>): BracketTie {
   const { gameIds, ...rest } = raw
   const top = raw.top ? toTeam(raw.top) : null
   const bottom = raw.bottom ? toTeam(raw.bottom) : null
-  const games = gameIds
+  const found = gameIds
     .map((id) => gamesById.get(id))
     .filter((m): m is Match => !!m)
+  const games =
+    raw.bestOf === 3 && top && bottom
+      ? withSeriesNotes(found, top, bottom)
+      : found
   return {
     ...rest,
     top,
@@ -197,6 +247,69 @@ function toConference(
     roundOne: raw.roundOne.map(tie),
     semifinals: raw.semifinals.map(tie),
     final: tie(raw.final),
+  }
+}
+
+type Lch = { l: number; c: number; h: number }
+
+const SILVER: Lch = { l: 0.86, c: 0, h: 0 }
+const STEEL: Lch = { l: 0.74, c: 0.1, h: 250 }
+const EMBER: Lch = { l: 0.72, c: 0.15, h: 50 }
+
+/** A club color lifted to read on the dark bracket, or null for near-greys. */
+function accent(hex: string | undefined): Lch | null {
+  const c = hex ? oklch(parse(hex)) : undefined
+  if (!c || (c.c ?? 0) < 0.04) return null
+  return {
+    l: Math.min(Math.max(c.l, 0.66), 0.88),
+    c: Math.min(c.c ?? 0, 0.17),
+    h: c.h ?? 0,
+  }
+}
+
+/** Too close to tell apart as small tinted pills (distance in oklab). */
+function clashes(a: Lch, b: Lch): boolean {
+  const rad = Math.PI / 180
+  const da = a.c * Math.cos(a.h * rad) - b.c * Math.cos(b.h * rad)
+  const db = a.c * Math.sin(a.h * rad) - b.c * Math.sin(b.h * rad)
+  return Math.hypot(a.l - b.l, da, db) < 0.1
+}
+
+const toCss = ({ l, c, h }: Lch) =>
+  `oklch(${(l * 100).toFixed(1)}% ${c.toFixed(3)} ${h.toFixed(1)})`
+
+export interface SideColors {
+  /** Pill fill and series-lead text. */
+  fill: string
+  /** Pill border — the club's own accent, even when the fill had to change. */
+  border: string
+}
+
+/**
+ * Colors per side of a series, for its game pills. The top (higher) seed
+ * keeps its accent; when the two would read as the same color, the other
+ * side's fill steps to its secondary, then silver, while its border keeps
+ * its own accent so the pill still reads as that club.
+ */
+export function seriesColors(
+  top: BracketTeam,
+  bottom: BracketTeam
+): { top: SideColors; bottom: SideColors } {
+  const topPair = TEAM_COLOR_PAIRS[top.name]
+  const topColor =
+    accent(topPair?.primary) ?? accent(topPair?.secondary) ?? SILVER
+  const pair = TEAM_COLOR_PAIRS[bottom.name]
+  const own = accent(pair?.primary) ?? accent(pair?.secondary)
+  const fill =
+    // STEEL and EMBER sit too far apart for one color to clash with both,
+    // so a distinct fill always exists.
+    [own, accent(pair?.secondary), SILVER, STEEL, EMBER].find(
+      (c): c is Lch => !!c && !clashes(topColor, c)
+    ) ?? EMBER
+  const topCss = toCss(topColor)
+  return {
+    top: { fill: topCss, border: topCss },
+    bottom: { fill: toCss(fill), border: toCss(own ?? fill) },
   }
 }
 

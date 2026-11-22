@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import type { Match } from '~/composables/useScores'
   import type { BracketTeam, BracketTie } from '~/composables/usePlayoffs'
+  import { seriesColors } from '~/composables/usePlayoffs'
+  import { useLiveClock } from '~/composables/useLiveClock'
   import { useTimezone } from '~/composables/useTimezone'
 
   const props = defineProps<{
@@ -14,23 +16,21 @@
     'open-game-detail': [match: Match]
   }>()
 
-  const { kickoffTimeHtml, iana } = useTimezone()
+  const { kickoffTimeHtml, formatTime, iana } = useTimezone()
 
   const isOn = (m: Match) => m.status.code === 'live' || m.status.code === 'ht'
 
-  // The game a click on the card should open: the one in play, else the next
-  // one up, else the last one played.
+  // The game the card's status line describes and a click opens: the one in
+  // play, else the last one played (its result is what the card shows), else
+  // the first one up. The pills still reach every game in a series.
   const focusGame = computed<Match | null>(() => {
     const games = props.tie.games
-    return (
-      games.find(isOn) ??
-      games.find((m) => m.status.code === 'ns') ??
-      games[games.length - 1] ??
-      null
-    )
+    const played = games.filter((m) => m.status.code !== 'ns')
+    return games.find(isOn) ?? played[played.length - 1] ?? games[0] ?? null
   })
 
   const isLive = computed(() => !!focusGame.value && isOn(focusGame.value))
+  const liveClock = useLiveClock(() => focusGame.value)
   const isSeries = computed(() => props.tie.bestOf === 3)
 
   function shortDate(iso: string): string {
@@ -49,17 +49,6 @@
     })
   }
 
-  const metaHtml = computed(() => {
-    const game = focusGame.value
-    if (props.tie.winner) return 'Final'
-    if (!game) return 'TBD'
-    if (game.status.code === 'ht') return 'HT'
-    if (game.status.code === 'live') return `Live ${game.status.clock ?? ''}`
-    if (game.status.code === 'ns')
-      return `${shortDate(game.date)}, ${kickoffTimeHtml(game)}`
-    return 'Final'
-  })
-
   function sideOf(match: Match, team: BracketTeam) {
     const home = match.home === team.name
     return {
@@ -68,10 +57,8 @@
     }
   }
 
-  const seriesStarted = computed(() =>
-    props.tie.games.some((m) => m.status.code !== 'ns')
-  )
-
+  // The rows carry the status line's game score — the same one its match
+  // detail shows. A series' other games are in the pills.
   const slots = computed(() =>
     (['top', 'bottom'] as const).map((side) => {
       const team = props.tie[side]
@@ -79,17 +66,9 @@
         side === 'top' ? props.tie.topOptions : props.tie.bottomOptions
       let score: string | null = null
       let pens: number | null = null
-      if (team && isSeries.value && seriesStarted.value) {
-        score = String(
-          side === 'top' ? props.tie.topWins : props.tie.bottomWins
-        )
-      } else if (
-        team &&
-        !isSeries.value &&
-        focusGame.value &&
-        focusGame.value.status.code !== 'ns'
-      ) {
-        const s = sideOf(focusGame.value, team)
+      const game = focusGame.value
+      if (team && game && game.status.code !== 'ns') {
+        const s = sideOf(game, team)
         score = s.goals ?? '0'
         pens = s.pens
       }
@@ -106,6 +85,11 @@
     })
   )
 
+  const colors = computed(() => {
+    const { top, bottom } = props.tie
+    return isSeries.value && top && bottom ? seriesColors(top, bottom) : null
+  })
+
   const pills = computed(() => {
     const { top, bottom } = props.tie
     if (!isSeries.value || !top || !bottom) return []
@@ -119,19 +103,42 @@
           text: numericDate(game.date),
           pens: false,
           state: 'ns',
-          label: `Game ${n}, ${shortDate(game.date)}`,
+          color: null,
+          label: `Game ${n}, ${shortDate(game.date)}, ${game.timeTbd ? 'time TBD' : formatTime(game.date).replace(/\s+/, '').toLowerCase()}`,
         }
       }
       const shootout = t.pens != null && b.pens != null
       const score = `${t.goals ?? 0}–${b.goals ?? 0}`
+      const diff =
+        Number(t.goals ?? 0) - Number(b.goals ?? 0) ||
+        Number(t.pens ?? 0) - Number(b.pens ?? 0)
+      const winner =
+        game.status.code === 'ft' && diff ? (diff > 0 ? 'top' : 'bottom') : null
       return {
         game,
         text: score,
         pens: shootout,
         state: isOn(game) ? 'live' : 'ft',
+        color: winner && colors.value ? colors.value[winner] : null,
         label: `Game ${n}, ${top.abbr} ${score} ${bottom.abbr}${shootout ? `, ${t.pens}–${b.pens} on penalties` : ''}`,
       }
     })
+  })
+
+  // "CLB leads 1–0" / "Tied 1–1" / "CLB won 2–1", once a series game is final.
+  const seriesLead = computed(() => {
+    const { top, bottom, topWins, bottomWins, winner } = props.tie
+    if (!isSeries.value || !top || !bottom || topWins + bottomWins === 0)
+      return null
+    if (topWins === bottomWins)
+      return { team: null, color: null, text: `Tied ${topWins}–${bottomWins}` }
+    const side = topWins > bottomWins ? 'top' : 'bottom'
+    const [hi, lo] = [topWins, bottomWins].sort((a, b) => b - a)
+    return {
+      team: props.tie[side]!.abbr,
+      color: colors.value?.[side].fill ?? null,
+      text: `${winner ? 'won' : 'leads'} ${hi}–${lo}`,
+    }
   })
 
   // Before ESPN schedules the game, a set pairing still opens its preview.
@@ -169,8 +176,31 @@
     <div class="tie-body">
       <p v-if="heading" class="tie-heading">{{ heading }}</p>
       <div class="tie-meta" :class="{ 'meta-live': isLive }">
-        <span v-if="isLive" class="live-dot" aria-hidden="true" />
-        <span v-html="metaHtml" />
+        <span class="meta-date">{{
+          focusGame ? shortDate(focusGame.date) : tie.winner ? 'Final' : 'TBD'
+        }}</span>
+        <span v-if="seriesLead" class="meta-lead"
+          ><span class="lead-sep" aria-hidden="true">· </span
+          ><span
+            v-if="seriesLead.team"
+            class="lead-team"
+            :style="seriesLead.color ? { color: seriesLead.color } : undefined"
+            >{{ seriesLead.team }}</span
+          >{{ seriesLead.text }}</span
+        >
+        <span v-if="focusGame" class="meta-status">
+          <template v-if="focusGame.status.code === 'live'">
+            <span class="live-dot" aria-hidden="true" />
+            <span class="badge badge-live">{{ liveClock }}</span>
+          </template>
+          <span v-else-if="focusGame.status.code === 'ht'" class="badge"
+            >HT</span
+          >
+          <span v-else-if="focusGame.status.code === 'ft'" class="badge"
+            >FT</span
+          >
+          <span v-else v-html="kickoffTimeHtml(focusGame)" />
+        </span>
       </div>
 
       <div
@@ -223,7 +253,15 @@
           :key="pill.game.id"
           type="button"
           class="pill"
-          :class="`pill-${pill.state}`"
+          :class="[`pill-${pill.state}`, { 'pill-won': pill.color }]"
+          :style="
+            pill.color
+              ? {
+                  '--pill-color': pill.color.fill,
+                  '--pill-border': pill.color.border,
+                }
+              : undefined
+          "
           :aria-label="pill.label"
           :title="pill.label"
           @click.stop="emit('open-game-detail', pill.game)"
@@ -321,6 +359,7 @@
   .tie-meta {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.3rem;
     min-height: 1rem;
     font-size: 0.75rem;
@@ -328,8 +367,48 @@
     letter-spacing: 0.02em;
     color: var(--color-text-secondary);
     white-space: nowrap;
+  }
+
+  .meta-date {
+    flex-shrink: 0;
+  }
+
+  .meta-lead {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-left: -0.05rem;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .lead-team {
+    margin-right: 0.25em;
+    font-weight: 500;
+  }
+
+  .meta-status {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  /* Too tight for "Nov 21 · CLB leads 1–0" beside the status: the lead takes
+     its own line under the date. */
+  @container (max-width: 8rem) {
+    .tie-meta {
+      flex-wrap: wrap;
+      row-gap: 0.1rem;
+    }
+    .meta-lead {
+      order: 1;
+      flex-basis: 100%;
+      margin-left: 0;
+    }
+    .lead-sep {
+      display: none;
+    }
   }
 
   .tie-meta :deep(.ampm) {
@@ -339,6 +418,29 @@
 
   .tie-decided .tie-meta {
     color: var(--color-text-tertiary);
+  }
+
+  .badge {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    padding: 0.12rem 0.2rem 0.14rem 0.28rem;
+    border-radius: 0.2rem;
+    background: oklab(100% 0 0 / 0.12);
+    color: var(--color-text-primary);
+  }
+
+  .tie-decided .badge {
+    color: var(--color-text-secondary);
+  }
+
+  .badge-live {
+    letter-spacing: 0.04em;
+    padding-inline: 0.25rem;
+    font-variant-numeric: tabular-nums;
+    background: oklab(100% 0 0 / 0.18);
   }
 
   .meta-live {
@@ -563,6 +665,17 @@
   .pill-live {
     color: var(--color-text-primary);
     box-shadow: inset 0 0 0 1px oklab(100% 0 0 / 0.35);
+  }
+
+  .pill-won {
+    color: var(--color-text-primary);
+    background: color-mix(in oklab, var(--pill-color) 26%, transparent);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--pill-border) 70%, transparent);
+  }
+
+  .pill-won:hover {
+    background: color-mix(in oklab, var(--pill-color) 40%, transparent);
   }
 
   .pill-pens {

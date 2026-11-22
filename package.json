@@ -9,6 +9,7 @@
     "preview": "nuxt preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "typecheck": "nuxt typecheck",
     "check:data": "tsx scripts/check-data.mts",
     "archive:standings": "tsx scripts/archive-standings.mts",
     "archive:week": "tsx scripts/archive-week.mts"
@@ -23,6 +24,7 @@
     "@types/node": "^26.6.6",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.3.14"
   }
 }

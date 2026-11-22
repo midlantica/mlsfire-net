@@ -2,6 +2,7 @@
   import { MLS_CUP_DATE, PLAYOFFS_SEASON } from '~/constants/mls'
   import type { Match } from '~/composables/useScores'
   import type { BracketTie } from '~/composables/usePlayoffs'
+  import { useLiveClock } from '~/composables/useLiveClock'
   import { useTimezone } from '~/composables/useTimezone'
 
   const props = defineProps<{
@@ -28,22 +29,24 @@
     () => game.value?.status.code === 'live' || game.value?.status.code === 'ht'
   )
 
-  const metaHtml = computed(() => {
+  const liveClock = useLiveClock(() => game.value)
+
+  function longDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: iana.value,
+    })
+  }
+
+  const kickoffHtml = computed(() => {
     const g = game.value
-    if (props.tie.winner) return 'Final'
-    if (!g) return props.featured ? `${cupDay} · Time TBD` : 'Time TBD'
-    if (g.status.code === 'ht') return 'HT'
-    if (g.status.code === 'live') return `Live ${g.status.clock ?? ''}`
-    if (g.status.code === 'ns') {
-      const day = new Date(g.date).toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        timeZone: iana.value,
-      })
-      return `${day}, ${kickoffTimeHtml(g)}`
+    if (!g) {
+      if (props.tie.winner) return 'Final'
+      return props.featured ? `${cupDay} · Time TBD` : 'Time TBD'
     }
-    return 'Final'
+    return `${longDate(g.date)}, ${kickoffTimeHtml(g)}`
   })
 
   const sides = computed(() =>
@@ -152,7 +155,18 @@
       />
     </div>
 
-    <div class="cup-meta" :class="{ 'meta-live': isLive }" v-html="metaHtml" />
+    <div class="cup-meta" :class="{ 'meta-live': isLive }">
+      <template v-if="game?.status.code === 'live'">
+        <span class="live-dot" aria-hidden="true" />
+        <span class="badge badge-live">{{ liveClock }}</span>
+      </template>
+      <span v-else-if="game?.status.code === 'ht'" class="badge">HT</span>
+      <template v-else-if="game?.status.code === 'ft'">
+        <span class="badge">FT</span>
+        <span>{{ longDate(game.date) }}</span>
+      </template>
+      <span v-else v-html="kickoffHtml" />
+    </div>
   </div>
 </template>
 
@@ -302,10 +316,51 @@
   }
 
   .cup-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
     font-size: 0.8125rem;
     font-weight: 300;
     color: var(--color-text-secondary);
     white-space: nowrap;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    padding: 0.14rem 0.22rem 0.16rem 0.3rem;
+    border-radius: 0.2rem;
+    background: oklab(100% 0 0 / 0.12);
+    color: var(--color-text-primary);
+  }
+
+  .badge-live {
+    letter-spacing: 0.04em;
+    padding-inline: 0.28rem;
+    font-variant-numeric: tabular-nums;
+    background: oklab(100% 0 0 / 0.18);
+  }
+
+  .live-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--color-theme-300);
+    animation: live-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes live-pulse {
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot {
+      animation: none;
+    }
   }
 
   .cup-meta :deep(.ampm) {
@@ -439,5 +494,10 @@
 
   .cup-featured .meta-live {
     color: oklch(97% 0.03 95);
+  }
+
+  .cup-featured .badge {
+    background: oklch(85% 0.1 85 / 0.18);
+    color: oklch(95% 0.04 95);
   }
 </style>

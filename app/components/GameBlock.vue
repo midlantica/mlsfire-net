@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import type { Match } from '../composables/useScores'
+  import { useLiveClock } from '../composables/useLiveClock'
   import { useTimezone } from '../composables/useTimezone'
   import { useConferenceBadges } from '../composables/useStandings'
   import { TEAM_SHORT_NAME } from '../composables/useTeamTheme'
@@ -117,85 +118,8 @@
     return pens ? pens.away > pens.home : false
   })
 
-  // ── Local clock ticker ────────────────────────────────────────────────────
-  // Parse "MM:SS" → total seconds, tick every second, display as "MM:SS"
-  // Resets whenever the prop clock changes (i.e. after each API refresh).
-  // Runs freely past 90:00 into stoppage/extra time. Won't tick during HT.
-  const localClock = ref<string | null>(null)
-  let clockBase = 0 // total seconds at last prop update
-  let clockTickedAt = 0 // Date.now() when we last synced from the prop
-  let clockTimer: ReturnType<typeof setInterval> | null = null
-
-  function parseClock(clock: string): number {
-    // Strip trailing prime/apostrophe (e.g. "35'" → "35")
-    const cleaned = clock.replace(/['''′`]/g, '')
-    const [m = '0', s = '0'] = cleaned.split(':')
-    return parseInt(m, 10) * 60 + parseInt(s, 10)
-  }
-
-  function formatClock(totalSeconds: number): string {
-    const m = Math.floor(totalSeconds / 60)
-    const s = totalSeconds % 60
-    return `${m}:${s.toString().padStart(2, '0')}`
-  }
-
-  function startClockTicker() {
-    stopClockTicker()
-    if (!isLive.value || !props.match.status.clock) return
-    clockBase = parseClock(props.match.status.clock)
-    clockTickedAt = Date.now()
-    localClock.value = formatClock(clockBase)
-
-    clockTimer = setInterval(() => {
-      if (!isLive.value) {
-        stopClockTicker()
-        return
-      }
-      const elapsed = Math.floor((Date.now() - clockTickedAt) / 1000)
-      localClock.value = formatClock(clockBase + elapsed)
-    }, 1000)
-  }
-
-  function stopClockTicker() {
-    if (clockTimer) {
-      clearInterval(clockTimer)
-      clockTimer = null
-    }
-  }
-
-  // Re-sync whenever the API clock prop changes
-  watch(
-    () => props.match.status.clock,
-    (newClock) => {
-      if (isLive.value && newClock) {
-        startClockTicker()
-      } else {
-        stopClockTicker()
-        localClock.value = null
-      }
-    }
-  )
-
-  // Also react to status code changes (e.g. going live or ending)
-  watch(isLive, (live) => {
-    if (live && props.match.status.clock) {
-      startClockTicker()
-    } else {
-      stopClockTicker()
-      localClock.value = null
-    }
-  })
-
-  onMounted(() => {
-    if (isLive.value && props.match.status.clock) startClockTicker()
-  })
-
-  onUnmounted(stopClockTicker)
-
-  // The clock label shown in the badge: prefer local ticker, fall back to prop
-  const displayClock = computed(
-    () => localClock.value ?? props.match.status.clock ?? 'LIVE'
-  )
+  const liveClock = useLiveClock(() => props.match)
+  const displayClock = computed(() => liveClock.value ?? 'LIVE')
 
   // ── Goal flash animation ──────────────────────────────────────────────────
   const justScored = ref(false)

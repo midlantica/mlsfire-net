@@ -76,6 +76,24 @@ function conferenceFrom(slug: string): Conference | null {
   return null
 }
 
+/** The MLS postseason round (and conference) an ESPN `season.slug` names. */
+export function getPlayoffRound(
+  seasonSlug?: string | null
+): { round: PlayoffRound; conference: Conference | null } | null {
+  const slug = seasonSlug?.toLowerCase() ?? ''
+  if (slug === 'mls-cup') return { round: 'mls-cup', conference: null }
+  if (!slug.includes('conference-playoffs')) return null
+  const key = slug.split('---')[1]
+  if (
+    key !== 'wild-card' &&
+    key !== 'round-one' &&
+    key !== 'semifinals' &&
+    key !== 'final'
+  )
+    return null
+  return { round: key, conference: conferenceFrom(slug) }
+}
+
 /**
  * Map an ESPN `season.slug` to display metadata.
  * Returns null for the regular season and anything unrecognised, so callers

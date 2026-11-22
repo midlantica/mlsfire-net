@@ -34,6 +34,17 @@ export interface Match {
   windowLabel?: string
   /** ESPN has the day but not the kickoff yet (`timeValid: false`) — `date` carries a placeholder time. */
   timeTbd?: boolean
+  /** Round One only, attached by the bracket — feeds the playoff preview. */
+  series?: SeriesContext
+}
+
+export interface SeriesContext {
+  /** 1-based game number in the best-of-3. */
+  game: number
+  /** The series' earlier games, oldest first. */
+  earlier: Match[]
+  /** The game after this one, if ESPN has scheduled it. */
+  next: Match | null
 }
 
 export type WeekTab = 'last' | 'this' | 'next'
