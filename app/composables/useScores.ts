@@ -220,6 +220,9 @@ function parseStatus(evt: Record<string, unknown>): MatchStatus {
   const clock = (status?.displayClock as string) || ''
   if (completed === true || state === 'post') return { code: 'ft' }
   if (name === 'STATUS_HALFTIME') return { code: 'ht' }
+  // ESPN keeps the 90'/120' clock on through a shootout — show that instead.
+  if (state === 'in' && /SHOOTOUT|PENALTY|PENALTIES/.test(name))
+    return { code: 'live', clock: 'PENS' }
   if (state === 'in') return { code: 'live', clock }
   return { code: 'ns' }
 }

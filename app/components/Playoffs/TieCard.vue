@@ -395,7 +395,8 @@
   }
 
   /* Too tight for "Nov 21 · CLB leads 1–0" beside the status: the lead takes
-     its own line under the date. */
+     its own line under the date. A live clock (dot + "63:08") needs more
+     room than FT, so in play that happens on wider cards too. */
   @container (max-width: 8rem) {
     .tie-meta {
       flex-wrap: wrap;
@@ -407,6 +408,21 @@
       margin-left: 0;
     }
     .lead-sep {
+      display: none;
+    }
+  }
+
+  @container (max-width: 10.5rem) {
+    .tie-live .tie-meta {
+      flex-wrap: wrap;
+      row-gap: 0.1rem;
+    }
+    .tie-live .meta-lead {
+      order: 1;
+      flex-basis: 100%;
+      margin-left: 0;
+    }
+    .tie-live .lead-sep {
       display: none;
     }
   }

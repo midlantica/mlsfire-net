@@ -7,6 +7,7 @@
     TEAM_ABBREV,
     ALL_STAR_TEAMS,
   } from '~/composables/useTeamTheme'
+  import { useLiveClock } from '~/composables/useLiveClock'
   import { useTimezone } from '~/composables/useTimezone'
   import { useConferenceBadges, useStandings } from '~/composables/useStandings'
   import {
@@ -185,95 +186,9 @@
     return props.match?.date ? kickoffTimeHtml(props.match) : ''
   })
 
-  // ── Local clock ticker for mobile clock block (mirrors GameBlock logic) ──────
-  const localClock = ref<string | null>(null)
-  let clockBase = 0
-  let clockTickedAt = 0
-  let clockTimer: ReturnType<typeof setInterval> | null = null
-
-  function parseClock(clock: string): number {
-    const cleaned = clock.replace(/['''′`]/g, '')
-    const [m = '0', s = '0'] = cleaned.split(':')
-    return parseInt(m, 10) * 60 + parseInt(s, 10)
-  }
-
-  function formatClock(totalSeconds: number): string {
-    const m = Math.floor(totalSeconds / 60)
-    const s = totalSeconds % 60
-    return `${m}:${s.toString().padStart(2, '0')}`
-  }
-
-  function startClockTicker() {
-    stopClockTicker()
-    if (props.match?.status.code !== 'live' || !props.match.status.clock) return
-    clockBase = parseClock(props.match.status.clock)
-    clockTickedAt = Date.now()
-    localClock.value = formatClock(clockBase)
-    clockTimer = setInterval(() => {
-      if (props.match?.status.code !== 'live') {
-        stopClockTicker()
-        return
-      }
-      const elapsed = Math.floor((Date.now() - clockTickedAt) / 1000)
-      localClock.value = formatClock(clockBase + elapsed)
-    }, 1000)
-  }
-
-  function stopClockTicker() {
-    if (clockTimer) {
-      clearInterval(clockTimer)
-      clockTimer = null
-    }
-  }
-
-  watch(
-    () => props.match?.status.clock,
-    (newClock) => {
-      if (props.match?.status.code === 'live' && newClock) {
-        startClockTicker()
-      } else {
-        stopClockTicker()
-        localClock.value = null
-      }
-    }
-  )
-
-  watch(
-    () => props.match?.status.code,
-    (code) => {
-      if (code === 'live' && props.match?.status.clock) {
-        startClockTicker()
-      } else {
-        stopClockTicker()
-        localClock.value = null
-      }
-    }
-  )
-
-  watch(
-    () => props.open,
-    (open) => {
-      if (
-        open &&
-        props.match?.status.code === 'live' &&
-        props.match.status.clock
-      ) {
-        startClockTicker()
-      } else if (!open) {
-        stopClockTicker()
-      }
-    }
-  )
-
-  onMounted(() => {
-    if (props.match?.status.code === 'live' && props.match.status.clock) {
-      startClockTicker()
-    }
-  })
-
-  const displayClock = computed(
-    () => localClock.value ?? props.match?.status.clock ?? 'LIVE'
-  )
+  // Ticks only while the modal is open.
+  const liveClock = useLiveClock(() => (props.open ? props.match : null))
+  const displayClock = computed(() => liveClock.value ?? 'LIVE')
 
   // Combined venue + attendance for desktop header footer line
   const matchVenueAttendance = computed(() => {
