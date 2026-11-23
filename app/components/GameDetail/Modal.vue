@@ -24,6 +24,7 @@
     calcLeaguesCupHeat,
   } from '~/constants/rounds'
   import { isLigaMxTeam } from '~/constants/ligamx'
+  import { bracketTies, usePlayoffs } from '~/composables/usePlayoffs'
 
   // ── Props / emits ─────────────────────────────────────────────────────────────
   const props = defineProps<{
@@ -34,6 +35,7 @@
   const emit = defineEmits<{
     close: []
     'select-team': [team: string]
+    'select-match': [match: Match]
   }>()
 
   // ── Data fetching ─────────────────────────────────────────────────────────────
@@ -54,8 +56,9 @@
 
   watch(
     () => props.match,
-    (m) => {
+    (m, prev) => {
       if (m && props.open) {
+        if (prev && prev.id !== m.id) clear()
         fetchDetail(m.id)
         if (isLiveOrHT(m)) startPolling(m.id)
         else stopPolling()
@@ -123,6 +126,65 @@
       }
     }
   )
+
+  // ── Series pills (best-of-3) ──────────────────────────────────────────────────
+  const { bracket, fetchBracket } = usePlayoffs()
+
+  const seriesTie = computed(() => {
+    const id = props.match?.id
+    if (!id || !bracket.value) return null
+    return (
+      bracketTies(bracket.value).find(
+        (t) => t.bestOf === 3 && t.games.some((g) => g.id === id)
+      ) ?? null
+    )
+  })
+
+  // The bracket's copy of this game carries the rebuilt series note and
+  // context; the scores lists' copy (and the page's live refresh) don't.
+  const seriesGame = computed(
+    () => seriesTie.value?.games.find((g) => g.id === props.match?.id) ?? null
+  )
+
+  watch(
+    () => props.open && getPlayoffRound(props.match?.seasonSlug)?.round,
+    (round) => {
+      if (round === 'round-one') fetchBracket()
+    },
+    { immediate: true }
+  )
+
+  const panel = ref<HTMLElement | null>(null)
+
+  // Another game in the series slides in from its side, like a tab change.
+  // The stage banner and tabs stay put; the scoreline and body move.
+  function selectSeriesGame(game: Match) {
+    const games = seriesTie.value?.games ?? []
+    const from = games.findIndex((g) => g.id === props.match?.id)
+    const to = games.findIndex((g) => g.id === game.id)
+    const dx = to > from ? 16 : -16
+    if (game.status.code === 'ns' && activeTab.value === 'overview')
+      activeTab.value = 'preview'
+    else if (game.status.code !== 'ns' && activeTab.value === 'preview')
+      activeTab.value = 'overview'
+    emit('select-match', game)
+    nextTick(() => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      panel.value
+        ?.querySelectorAll(
+          '.modal-header > :not(.header-stage, .modal-close), .modal-body'
+        )
+        .forEach((el) =>
+          el.animate(
+            [
+              { transform: `translateX(${dx}px)`, opacity: 0 },
+              { transform: 'none', opacity: 1 },
+            ],
+            { duration: 180, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }
+          )
+        )
+    })
+  }
 
   // ── Derived data ──────────────────────────────────────────────────────────────
   const homeTeam = computed(() => props.match?.home ?? '')
@@ -209,7 +271,9 @@
 
   // ── Playoff stage / series state ─────────────────────────────────────────
   const roundInfo = computed(() => getRoundInfo(props.match?.seasonSlug))
-  const seriesNote = computed(() => props.match?.seriesNote ?? null)
+  const seriesNote = computed(
+    () => seriesGame.value?.seriesNote ?? props.match?.seriesNote ?? null
+  )
   const seriesDecided = computed(() => isSeriesDecided(seriesNote.value))
   const isLeaguesCup = computed(
     () => getCompetition(props.match?.seasonSlug) === 'Leagues Cup'
@@ -622,10 +686,11 @@
   const playoffPreviewInput = computed(() => {
     const stage = getPlayoffRound(props.match?.seasonSlug)
     if (!stage) return undefined
-    const next = props.match?.series?.next
+    const series = seriesGame.value?.series ?? props.match?.series
+    const next = series?.next
     return {
       ...stage,
-      series: props.match?.series,
+      series,
       nextDate: next
         ? new Date(next.date).toLocaleDateString('en-US', {
             weekday: 'short',
@@ -673,7 +738,7 @@
         @mousedown.self="emit('close')"
       >
         <div class="modal-shell" :class="{ 'modal-cup': isCupFinal }">
-          <div class="modal-panel">
+          <div ref="panel" class="modal-panel">
             <!-- ── Header ──────────────────────────────────────────────────────── -->
             <div class="modal-header">
               <!-- Playoff stage banner — postseason matches only -->
@@ -697,12 +762,22 @@
                   />
                   <span>{{ roundInfo.stage }}</span>
                 </span>
-                <span
-                  v-if="seriesNote"
-                  class="header-series-note"
-                  :class="{ 'header-series-decided': seriesDecided }"
-                  >{{ seriesNote }}</span
-                >
+                <div v-if="seriesNote || seriesTie" class="header-series">
+                  <span
+                    v-if="seriesNote"
+                    class="header-series-note"
+                    :class="{ 'header-series-decided': seriesDecided }"
+                    >{{ seriesNote }}</span
+                  >
+                  <PlayoffsSeriesPills
+                    v-if="seriesTie"
+                    class="header-series-pills"
+                    :tie="seriesTie"
+                    :current="match.id"
+                    show-winner
+                    @open-game-detail="selectSeriesGame"
+                  />
+                </div>
               </div>
 
               <!-- Mobile game-card header (hidden on desktop) -->
@@ -1931,7 +2006,7 @@
     margin-bottom: 0.5rem;
   }
 
-  .header-stage:has(.header-series-note) {
+  .header-stage:has(.header-series) {
     gap: 0.55rem;
     margin-bottom: 1rem;
   }
@@ -1987,6 +2062,25 @@
     text-align: center;
   }
 
+  .header-series {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+  }
+
+  .header-series-pills {
+    gap: 0.35rem;
+  }
+
+  .header-series-pills :deep(.pill) {
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    padding: 0.04rem 0.45rem 0.17rem;
+    line-height: 1.3;
+  }
+
   .header-series-decided {
     color: oklab(20% 0.02 0.03);
     background: oklab(84% 0.03 0.14);
@@ -2001,7 +2095,8 @@
     .header-stage-label-lc {
       font-size: 0.7475rem;
     }
-    .header-series-note {
+    .header-series-note,
+    .header-series-pills :deep(.pill) {
       font-size: 0.68rem;
     }
   }

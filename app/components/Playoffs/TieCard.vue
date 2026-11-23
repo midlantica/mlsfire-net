@@ -16,7 +16,7 @@
     'open-game-detail': [match: Match]
   }>()
 
-  const { kickoffTimeHtml, formatTime, iana } = useTimezone()
+  const { kickoffTimeHtml, iana } = useTimezone()
 
   const isOn = (m: Match) => m.status.code === 'live' || m.status.code === 'ht'
 
@@ -36,14 +36,6 @@
   function shortDate(iso: string): string {
     return new Date(iso).toLocaleDateString('en-US', {
       month: 'short',
-      day: 'numeric',
-      timeZone: iana.value,
-    })
-  }
-
-  function numericDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'numeric',
       day: 'numeric',
       timeZone: iana.value,
     })
@@ -90,41 +82,6 @@
     return isSeries.value && top && bottom ? seriesColors(top, bottom) : null
   })
 
-  const pills = computed(() => {
-    const { top, bottom } = props.tie
-    if (!isSeries.value || !top || !bottom) return []
-    return props.tie.games.map((game, i) => {
-      const t = sideOf(game, top)
-      const b = sideOf(game, bottom)
-      const n = i + 1
-      if (game.status.code === 'ns') {
-        return {
-          game,
-          text: numericDate(game.date),
-          pens: false,
-          state: 'ns',
-          color: null,
-          label: `Game ${n}, ${shortDate(game.date)}, ${game.timeTbd ? 'time TBD' : formatTime(game.date).replace(/\s+/, '').toLowerCase()}`,
-        }
-      }
-      const shootout = t.pens != null && b.pens != null
-      const score = `${t.goals ?? 0}–${b.goals ?? 0}`
-      const diff =
-        Number(t.goals ?? 0) - Number(b.goals ?? 0) ||
-        Number(t.pens ?? 0) - Number(b.pens ?? 0)
-      const winner =
-        game.status.code === 'ft' && diff ? (diff > 0 ? 'top' : 'bottom') : null
-      return {
-        game,
-        text: score,
-        pens: shootout,
-        state: isOn(game) ? 'live' : 'ft',
-        color: winner && colors.value ? colors.value[winner] : null,
-        label: `Game ${n}, ${top.abbr} ${score} ${bottom.abbr}${shootout ? `, ${t.pens}–${b.pens} on penalties` : ''}`,
-      }
-    })
-  })
-
   // "CLB leads 1–0" / "Tied 1–1" / "CLB won 2–1", once a series game is final.
   const seriesLead = computed(() => {
     const { top, bottom, topWins, bottomWins, winner } = props.tie
@@ -144,8 +101,16 @@
   // Before ESPN schedules the game, a set pairing still opens its preview.
   const target = computed(() => focusGame.value ?? props.tie.preview)
 
+  const hasPills = computed(
+    () =>
+      isSeries.value &&
+      !!props.tie.top &&
+      !!props.tie.bottom &&
+      props.tie.games.length > 0
+  )
+
   // With game pills, those are the keyboard targets; otherwise the card is.
-  const isButton = computed(() => !!target.value && !pills.value.length)
+  const isButton = computed(() => !!target.value && !hasPills.value)
 
   function open() {
     if (target.value) emit('open-game-detail', target.value)
@@ -247,28 +212,12 @@
         </template>
       </div>
 
-      <div v-if="pills.length" class="tie-games">
-        <button
-          v-for="pill in pills"
-          :key="pill.game.id"
-          type="button"
-          class="pill"
-          :class="[`pill-${pill.state}`, { 'pill-won': pill.color }]"
-          :style="
-            pill.color
-              ? {
-                  '--pill-color': pill.color.fill,
-                  '--pill-border': pill.color.border,
-                }
-              : undefined
-          "
-          :aria-label="pill.label"
-          :title="pill.label"
-          @click.stop="emit('open-game-detail', pill.game)"
-        >
-          {{ pill.text }}<span v-if="pill.pens" class="pill-pens">p</span>
-        </button>
-      </div>
+      <PlayoffsSeriesPills
+        v-if="hasPills"
+        class="tie-games"
+        :tie="tie"
+        @open-game-detail="emit('open-game-detail', $event)"
+      />
     </div>
   </div>
 </template>
@@ -588,7 +537,7 @@
   }
 
   /* ── Best-of-3 game strip ─────────────────────────────────────────────── */
-  .tie-games {
+  .tie-body .tie-games {
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem;
@@ -611,7 +560,7 @@
     .tie-row {
       grid-column: 1;
     }
-    .tie-games {
+    .tie-body .tie-games {
       grid-column: 2;
       grid-row: 2 / span 2;
       flex-direction: column;
@@ -621,7 +570,7 @@
       margin-top: 0;
       padding-left: 0;
     }
-    .tie-games .pill {
+    .tie-body .tie-games :deep(.pill) {
       padding-block: 0.1rem 0.12rem;
       text-align: center;
     }
@@ -630,7 +579,7 @@
   /* Tight columns (narrow mirrored bracket, phones): drop the indent, and
      give a shootout tally the seed's room so the abbreviation stays whole. */
   @container (max-width: 8rem) {
-    .tie-games {
+    .tie-body .tie-games {
       padding-left: 0;
     }
   }
@@ -645,58 +594,5 @@
     .tie-row:has(.abbr-pending) .seed {
       display: none;
     }
-  }
-
-  .pill {
-    font-family: inherit;
-    font-size: 0.75rem;
-    font-weight: 400;
-    line-height: 1;
-    padding: 0.15rem 0.25rem 0.18rem;
-    border: none;
-    border-radius: 0.2rem;
-    background: oklab(100% 0 0 / 0.08);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-    cursor: pointer;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .pill:hover {
-    background: oklab(100% 0 0 / 0.16);
-    color: var(--color-text-primary);
-  }
-
-  .pill:focus-visible {
-    outline: 2px solid var(--color-theme-400);
-    outline-offset: 1px;
-  }
-
-  .pill-ns {
-    background: none;
-    box-shadow: inset 0 0 0 1px oklab(100% 0 0 / 0.1);
-    color: var(--color-text-tertiary);
-  }
-
-  .pill-live {
-    color: var(--color-text-primary);
-    box-shadow: inset 0 0 0 1px oklab(100% 0 0 / 0.35);
-  }
-
-  .pill-won {
-    color: var(--color-text-primary);
-    background: color-mix(in oklab, var(--pill-color) 26%, transparent);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in oklab, var(--pill-border) 70%, transparent);
-  }
-
-  .pill-won:hover {
-    background: color-mix(in oklab, var(--pill-color) 40%, transparent);
-  }
-
-  .pill-pens {
-    font-size: 0.85em;
-    margin-left: 0.08rem;
-    opacity: 0.8;
   }
 </style>

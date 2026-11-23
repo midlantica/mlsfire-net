@@ -185,12 +185,15 @@ export function useMatchDetail() {
       const data = await $fetch<MatchDetail>(
         `/api/match-detail?eventId=${eventId}`
       )
+      // The modal can move to another game (series pills) mid-request.
+      if (currentEventId.value !== eventId) return
       detail.value = data
     } catch (e: unknown) {
+      if (currentEventId.value !== eventId) return
       error.value =
         e instanceof Error ? e.message : 'Failed to load match details'
     } finally {
-      loading.value = false
+      if (currentEventId.value === eventId) loading.value = false
     }
   }
 

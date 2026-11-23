@@ -140,6 +140,12 @@
     trackPageview('/game')
   }
 
+  // Another game in the same series, picked from the modal's pills.
+  function switchGameDetail(match: Match) {
+    gameDetailMatch.value = match
+    history.replaceState(history.state, '', `/game?id=${match.id}`)
+  }
+
   // Called from TeamDetailModal when a game card is clicked.
   // We close the team modal first, then defer opening the game detail to the
   // next tick so the click event that triggered this doesn't bubble through
@@ -723,6 +729,7 @@
         :match="gameDetailMatch"
         @close="closeAllModals"
         @select-team="openTeamModalFromGameDetail"
+        @select-match="switchGameDetail"
       />
     </ClientOnly>
   </main>

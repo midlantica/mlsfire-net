@@ -510,6 +510,7 @@
         :open="gameDetailOpen"
         :match="gameDetailMatch"
         @close="closeGameDetail"
+        @select-match="gameDetailMatch = $event"
       />
       <TeamDetailModal
         :open="clubOpen"
